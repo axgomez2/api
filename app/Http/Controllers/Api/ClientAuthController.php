@@ -454,4 +454,43 @@ class ClientAuthController extends Controller
           return redirect($frontendUrl . '/email-verified?success=false&message=Erro interno do servidor');
       }
   }
+
+  /**
+   * Redireciona o usuário para a página de autenticação do Google.
+   */
+  public function redirectToGoogle()
+  {
+      return Socialite::driver('google')->stateless()->redirect();
+  }
+
+  /**
+   * Obtém as informações do usuário do Google e lida com o login/registro.
+   */
+  public function handleGoogleCallback()
+  {
+      try {
+          $googleUser = Socialite::driver('google')->stateless()->user();
+
+          $user = ClientUser::updateOrCreate(
+              ['email' => $googleUser->getEmail()],
+              [
+                  'name' => $googleUser->getName(),
+                  'google_id' => $googleUser->getId(),
+                  'password' => Hash::make(Str::random(24)), // Senha aleatória
+                  'email_verified_at' => now(), // Marcar como verificado
+              ]
+          );
+
+          $token = $user->createToken('client-auth-token')->plainTextToken;
+
+          // Redirecionar para o frontend com o token
+          $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+          return redirect($frontendUrl . '/auth/callback?token=' . $token);
+
+      } catch (\Exception $e) {
+          Log::error('Erro no callback do Google:', ['error' => $e->getMessage()]);
+          $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+          return redirect($frontendUrl . '/login?error=google_login_failed');
+      }
+  }
 }

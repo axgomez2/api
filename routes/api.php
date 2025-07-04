@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ShippingController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\ArtistController;
+use App\Http\Controllers\Api\RecordLabelController;
 use Illuminate\Http\Request;
 
 // 🔥 ROTA DE DEBUG (PRIMEIRA para não conflitar)
@@ -69,7 +71,7 @@ Route::middleware('client.auth')->group(function () {
     Route::post('/client/logout', [ClientAuthController::class, 'logout']);
 
     // Carrinho
-    Route::prefix('cart')->group(function () {
+    Route::prefix('client/cart')->group(function () {
         Route::get('/', [CartController::class, 'index']);
         Route::post('/', [CartController::class, 'store']);
         Route::delete('/{productId}', [CartController::class, 'destroy']);
@@ -78,7 +80,7 @@ Route::middleware('client.auth')->group(function () {
     });
 
     // Wishlist
-    Route::prefix('wishlist')->group(function () {
+    Route::prefix('client/wishlist')->group(function () {
         Route::get('/', [WishlistController::class, 'index']);
         Route::post('/', [WishlistController::class, 'store']);
         Route::get('/{productId}/check', [WishlistController::class, 'check']); // 🔥 NOVA ROTA
@@ -87,7 +89,7 @@ Route::middleware('client.auth')->group(function () {
     });
 
     // Wantlist
-    Route::prefix('wantlist')->group(function () {
+    Route::prefix('client/wantlist')->group(function () {
         Route::get('/', [WantlistController::class, 'index']);
         Route::post('/', [WantlistController::class, 'store']);
         Route::delete('/{productId}', [WantlistController::class, 'destroy']);
@@ -95,7 +97,7 @@ Route::middleware('client.auth')->group(function () {
     });
 
     // Endereços
-    Route::prefix('addresses')->group(function () {
+    Route::prefix('client/addresses')->group(function () {
         Route::get('/', [AddressController::class, 'index']);
         Route::post('/', [AddressController::class, 'store']);
         Route::put('/{id}', [AddressController::class, 'update']);
@@ -104,7 +106,7 @@ Route::middleware('client.auth')->group(function () {
     });
 
     // Rotas de shipping que precisam de autenticação
-    Route::prefix('shipping')->group(function () {
+    Route::prefix('client/shipping')->group(function () {
         Route::post('rates', [ShippingController::class, 'rates']);
         Route::post('labels', [ShippingController::class, 'createLabel']);
         Route::post('select-service', [ShippingController::class, 'selectService']);
@@ -113,7 +115,7 @@ Route::middleware('client.auth')->group(function () {
     });
 
     // Pedidos
-    Route::prefix('orders')->group(function () {
+    Route::prefix('client/orders')->group(function () {
         Route::get('/', [OrderController::class, 'index']);
         Route::post('/', [OrderController::class, 'store']);
         Route::get('/{id}', [OrderController::class, 'show']);
@@ -123,16 +125,60 @@ Route::middleware('client.auth')->group(function () {
     });
 
     // 🔥 ROTAS DE PAGAMENTO - MERCADO PAGO
-    Route::prefix('payment')->group(function () {
+    Route::prefix('client/payment')->group(function () {
         Route::post('create-preference', [PaymentController::class, 'createPreference']);
         Route::post('process', [PaymentController::class, 'processPayment']);
         Route::get('status/{paymentId}', [PaymentController::class, 'getPaymentStatus']);
+        Route::get('/{paymentId}/details', [PaymentController::class, 'getPaymentDetails']);
     });
 
 });
 
 // 🔥 WEBHOOK MERCADO PAGO (SEM AUTENTICAÇÃO)
 Route::post('/webhooks/mercadopago', [PaymentController::class, 'webhook']);
+
+// 🔥 ROTAS DE REDIRECIONAMENTO MERCADO PAGO (SEM AUTENTICAÇÃO)
+Route::get('/success', function (Request $request) {
+    $redirectUrl = $request->query('redirect', config('app.frontend_url') . '/checkout/success');
+
+    // Adicionar parâmetros do MP à URL de redirecionamento
+    $mpParams = $request->only(['collection_id', 'collection_status', 'payment_id', 'status', 'external_reference', 'payment_type', 'merchant_order_id', 'preference_id']);
+
+    if (!empty($mpParams)) {
+        $separator = strpos($redirectUrl, '?') !== false ? '&' : '?';
+        $redirectUrl .= $separator . http_build_query($mpParams);
+    }
+
+    return redirect($redirectUrl);
+});
+
+Route::get('/failure', function (Request $request) {
+    $redirectUrl = $request->query('redirect', config('app.frontend_url') . '/checkout/failure');
+
+    // Adicionar parâmetros do MP à URL de redirecionamento
+    $mpParams = $request->only(['collection_id', 'collection_status', 'payment_id', 'status', 'external_reference', 'payment_type', 'merchant_order_id', 'preference_id']);
+
+    if (!empty($mpParams)) {
+        $separator = strpos($redirectUrl, '?') !== false ? '&' : '?';
+        $redirectUrl .= $separator . http_build_query($mpParams);
+    }
+
+    return redirect($redirectUrl);
+});
+
+Route::get('/pending', function (Request $request) {
+    $redirectUrl = $request->query('redirect', config('app.frontend_url') . '/checkout/pending');
+
+    // Adicionar parâmetros do MP à URL de redirecionamento
+    $mpParams = $request->only(['collection_id', 'collection_status', 'payment_id', 'status', 'external_reference', 'payment_type', 'merchant_order_id', 'preference_id']);
+
+    if (!empty($mpParams)) {
+        $separator = strpos($redirectUrl, '?') !== false ? '&' : '?';
+        $redirectUrl .= $separator . http_build_query($mpParams);
+    }
+
+    return redirect($redirectUrl);
+});
 
 // Rotas para Products (principal para e-commerce)
 Route::prefix('products')->group(function () {
@@ -160,6 +206,97 @@ Route::prefix('categories')->group(function () {
     Route::get('/{slug}', [CategoryController::class, 'show']);
     Route::get('/{slug}/products', [CategoryController::class, 'productsByCategory']);
 });
+
+// Rotas para Artistas
+Route::prefix('artists')->group(function () {
+    Route::get('/', [ArtistController::class, 'index']);
+    Route::get('/{slug}', [ArtistController::class, 'show']);
+    Route::get('/{slug}/products', [ArtistController::class, 'productsByArtist']);
+});
+
+// Rotas para Gravadoras (Record Labels)
+Route::prefix('labels')->group(function () {
+    Route::get('/', [RecordLabelController::class, 'index']);
+    Route::get('/{slug}', [RecordLabelController::class, 'show']);
+    Route::get('/{slug}/products', [RecordLabelController::class, 'productsByLabel']);
+});
+
+// Routes de debug (apenas em ambiente de desenvolvimento)
+if (config('app.debug')) {
+    Route::get('debug/app', function () {
+        return response()->json([
+            'app_name' => config('app.name'),
+            'app_url' => config('app.url'),
+            'app_env' => config('app.env'),
+            'app_debug' => config('app.debug'),
+            'timestamp' => now()->toDateTimeString()
+        ]);
+    });
+
+    Route::get('debug/mercadopago', function () {
+        return response()->json([
+            'access_token_exists' => !empty(config('services.mercadopago.access_token')),
+            'access_token_length' => strlen(config('services.mercadopago.access_token') ?? ''),
+            'access_token_prefix' => substr(config('services.mercadopago.access_token') ?? '', 0, 15),
+            'public_key_exists' => !empty(config('services.mercadopago.public_key')),
+            'public_key_length' => strlen(config('services.mercadopago.public_key') ?? ''),
+            'public_key_prefix' => substr(config('services.mercadopago.public_key') ?? '', 0, 15),
+            'webhook_secret_exists' => !empty(config('services.mercadopago.webhook_secret')),
+            'sandbox_mode' => config('services.mercadopago.sandbox', false),
+            'app_url' => config('app.url'),
+            'webhook_url' => config('app.url') . '/api/webhooks/mercadopago',
+            'timestamp' => now()->toDateTimeString()
+        ]);
+    });
+
+    Route::post('debug/mp-test-preference', function (Request $request) {
+        try {
+            $mercadoPagoService = app(\App\Services\MercadoPagoService::class);
+
+            $testData = [
+                'items' => [
+                    [
+                        'id' => 'test-item',
+                        'title' => 'Item de Teste',
+                        'quantity' => 1,
+                        'unit_price' => 10.00,
+                        'currency_id' => 'BRL'
+                    ]
+                ],
+                'payer' => [
+                    'email' => 'test@test.com',
+                    'name' => 'Test User'
+                ],
+                'back_urls' => [
+                    'success' => config('app.url') . '/success',
+                    'failure' => config('app.url') . '/failure',
+                    'pending' => config('app.url') . '/pending'
+                ],
+                'auto_return' => 'approved',
+                'external_reference' => 'test_' . time(),
+                'notification_url' => config('app.url') . '/api/webhooks/mercadopago'
+            ];
+
+            $preference = $mercadoPagoService->createPreference($testData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Preferência de teste criada com sucesso',
+                'preference_id' => $preference->id,
+                'init_point' => $preference->init_point,
+                'sandbox_init_point' => $preference->sandbox_init_point
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'error_class' => get_class($e),
+                'trace' => $e->getTraceAsString()
+            ], 500);
+        }
+    });
+}
 
 // Rota de teste do Mercado Pago
 Route::get('/test-mercadopago', function () {

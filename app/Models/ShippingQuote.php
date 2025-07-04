@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ShippingQuote extends Model
 {
@@ -110,5 +111,15 @@ class ShippingQuote extends Model
                 $model->expires_at = Carbon::now()->addHours(24);
             }
         });
+    }
+
+    public function shippingLabel()
+    {
+        return $this->hasOne(ShippingLabel::class);
+    }
+
+    public function order(): HasOne
+    {
+        return $this->hasOne(Order::class);
     }
 }

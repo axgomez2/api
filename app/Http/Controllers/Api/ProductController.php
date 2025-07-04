@@ -36,7 +36,7 @@ class ProductController extends Controller
                 ]);
             }
         });
-        
+
         return response()->json([
             'status' => 'success',
             'data' => $products
@@ -51,7 +51,7 @@ class ProductController extends Controller
         $product = Product::where('slug', $slug)
             ->with(['productable'])
             ->firstOrFail();
-        
+
         // Verificamos se o produto é um disco de vinil e carregamos dados específicos
         if ($product->productable_type === 'App\Models\VinylMaster') {
             $product->load([
@@ -69,7 +69,7 @@ class ProductController extends Controller
                 'productable.media'
             ]);
         }
-        
+
         return response()->json([
             'status' => 'success',
             'data' => $product
@@ -120,7 +120,7 @@ class ProductController extends Controller
         try {
             // Iniciar a consulta filtrando por tipo de produto (vinil)
             $query = Product::where('productable_type', 'App\\Models\\VinylMaster');
-            
+
             // Adicionar filtros opcionais
             if ($request->has('year')) {
                 $year = $request->input('year');
@@ -128,35 +128,35 @@ class ProductController extends Controller
                     $q->where('release_year', $year);
                 });
             }
-            
+
             if ($request->has('artist_id')) {
                 $artistId = $request->input('artist_id');
                 $query->whereHas('productable.artists', function($q) use ($artistId) {
                     $q->where('artists.id', $artistId);
                 });
             }
-            
+
             if ($request->has('label_id')) {
                 $labelId = $request->input('label_id');
                 $query->whereHas('productable', function($q) use ($labelId) {
                     $q->where('record_label_id', $labelId);
                 });
             }
-            
+
             if ($request->has('category_id')) {
                 $categoryId = $request->input('category_id');
                 $query->whereHas('productable.categories', function($q) use ($categoryId) {
                     $q->where('cat_style_shop.id', $categoryId);
                 });
             }
-            
+
             // Definir ordenação
             $sortField = $request->input('sort_by', 'created_at');
             $sortDirection = $request->input('sort_direction', 'desc');
-            
+
             // Lista de campos permitidos para ordenação
             $allowedSortFields = ['created_at', 'name', 'price'];
-            
+
             // Verificar se o campo de ordenação é válido
             if (in_array($sortField, $allowedSortFields)) {
                 // Se for ordenação por preço, precisamos ordenar pelo relacionamento vinylSec
@@ -174,7 +174,7 @@ class ProductController extends Controller
             } else {
                 $query->orderBy('created_at', 'desc');
             }
-            
+
             // Carregar relações
             $query->with([
                 'productable.recordLabel',
@@ -190,28 +190,28 @@ class ProductController extends Controller
                 'productable.categories',
                 'productable.media'
             ]);
-            
+
             // Definir campos a selecionar e paginação
             $perPage = $request->input('per_page', 20);
             $products = $query->select(
-                'products.id', 
-                'products.name', 
-                'products.slug', 
-                'products.description', 
-                'products.productable_id', 
+                'products.id',
+                'products.name',
+                'products.slug',
+                'products.description',
+                'products.productable_id',
                 'products.productable_type',
                 'products.created_at'
             )
             ->paginate($perPage);
-            
+
             return response()->json([
                 'status' => 'success',
                 'data' => $products
             ]);
-            
+
         } catch (\Exception $e) {
             \Log::error('Error in vinylProducts:', ['error' => $e->getMessage()]);
-            
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Erro ao buscar produtos de vinil',
@@ -242,16 +242,16 @@ class ProductController extends Controller
                 'productable.media'
             ])
             ->firstOrFail();
-            
+
         return response()->json([
             'status' => 'success',
             'data' => $product
         ]);
     }
-    
+
     /**
      * Retorna os últimos discos cadastrados
-     * 
+     *
      * @param int $limit Quantidade máxima de discos a retornar
      * @return \Illuminate\Http\JsonResponse
      */
@@ -268,7 +268,7 @@ class ProductController extends Controller
             ->orderBy('created_at', 'desc')
             ->limit($limit)
             ->get();
-            
+
         return response()->json([
             'status' => 'success',
             'data' => $products

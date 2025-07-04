@@ -17,7 +17,7 @@ class CategoryController extends Controller
         $categories = CatStyleShop::withCount('vinylMasters')
             ->has('vinylMasters') // Only get categories that have related vinyl records
             ->get();
-        
+
         return response()->json([
             'status' => 'success',
             'data' => $categories
@@ -30,7 +30,7 @@ class CategoryController extends Controller
     public function show($slug)
     {
         $category = CatStyleShop::where('slug', $slug)->firstOrFail();
-        
+
         return response()->json([
             'status' => 'success',
             'data' => $category
@@ -44,16 +44,16 @@ class CategoryController extends Controller
     {
         $category = CatStyleShop::where('slug', $slug)
             ->firstOrFail();
-            
+
         // Encontrar os IDs dos vinyl_masters relacionados a esta categoria
         $vinylMasterIds = $category->vinylMasters()
             ->pluck('vinyl_masters.id')
             ->toArray();
-            
+
         // Buscar produtos que têm esses vinyl_masters
         $products = Product::whereHasMorph(
-                'productable', 
-                ['App\\Models\\VinylMaster'], 
+                'productable',
+                ['App\\Models\\VinylMaster'],
                 function ($query) use ($vinylMasterIds) {
                     $query->whereIn('id', $vinylMasterIds);
                 }
@@ -63,10 +63,11 @@ class CategoryController extends Controller
                 'productable.artists',
                 'productable.vinylSec',
                 'productable.categories',
-                'productable.media'
+                'productable.media',
+                'productable.tracks'
             ])
             ->paginate(15);
-            
+
         return response()->json([
             'status' => 'success',
             'category' => $category->name,
