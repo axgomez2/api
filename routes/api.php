@@ -16,6 +16,29 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ArtistController;
 use App\Http\Controllers\Api\RecordLabelController;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Admin\MarketAnalysisController;
+use App\Http\Controllers\Admin\StatusController;
+
+// 🔥 ENDPOINT DE CONFIGURAÇÃO (SEM AUTENTICAÇÃO)
+Route::get('/config', function () {
+    return response()->json([
+        'api_url' => config('app.url'),
+        'frontend_url' => config('app.frontend_url'),
+        'app_name' => config('app.name'),
+        'cdn_url' => env('CDN_URL', 'https://cdn.rdvdiscos.com.br'),
+        'media_url' => env('MEDIA_URL', 'https://media.rdvdiscos.com.br'),
+        'image_base_url' => env('IMAGE_BASE_URL', config('app.url')),
+        'mercadopago' => [
+            'public_key' => config('services.mercadopago.public_key'),
+            'sandbox' => config('services.mercadopago.sandbox', false),
+        ],
+        'google' => [
+            'client_id' => config('services.google.client_id'),
+        ],
+        'app_env' => config('app.env'),
+        'timestamp' => now()->toDateTimeString()
+    ]);
+});
 
 // 🔥 ROTA DE DEBUG (PRIMEIRA para não conflitar)
 Route::get('/debug/routes', function () {
@@ -24,7 +47,7 @@ Route::get('/debug/routes', function () {
             'method' => implode('|', $route->methods()),
             'uri' => $route->uri(),
             'name' => $route->getName(),
-            'action' => $route->getActionName(),
+            'action' => ltrim($route->getActionName(), '\\'),
         ];
     });
 
@@ -201,11 +224,10 @@ Route::prefix('vinyl')->group(function () {
 });
 
 // Rotas para Categorias (CatStyleShop)
-Route::prefix('categories')->group(function () {
-    Route::get('/', [CategoryController::class, 'index']);
-    Route::get('/{slug}', [CategoryController::class, 'show']);
-    Route::get('/{slug}/products', [CategoryController::class, 'productsByCategory']);
-});
+Route::get('/categories', [CategoryController::class, 'index']);
+Route::get('/categories-with-products', [CategoryController::class, 'fetchWithProducts']);
+Route::get('/categories/{slug}', [CategoryController::class, 'show']);
+Route::get('/categories/{slug}/products', [CategoryController::class, 'productsByCategory']);
 
 // Rotas para Artistas
 Route::prefix('artists')->group(function () {
@@ -412,3 +434,11 @@ Route::get('/test-card-payment', function () {
         ], 400);
     }
 });
+
+Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+    // Rotas para análise de mercado
+    Route::get('/market-analysis-chart-data', [MarketAnalysisController::class, 'getChartData']);
+    Route::resource('market-analysis', MarketAnalysisController::class)->except(['create', 'edit']);
+});
+
+Route::get('/status', [StatusController::class, 'index']);

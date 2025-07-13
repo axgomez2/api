@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // 🔥 Configuração do Sanctum para API
         $middleware->api(prepend: [
+            \Illuminate\Http\Middleware\HandleCors::class,
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);
 

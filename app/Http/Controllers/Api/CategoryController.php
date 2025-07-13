@@ -74,4 +74,42 @@ class CategoryController extends Controller
             'data' => $products
         ]);
     }
+
+    /**
+     * Listar todas as categorias com alguns de seus produtos
+     */
+    public function fetchWithProducts()
+    {
+        $categories = CatStyleShop::whereHas('vinylMasters')
+            ->with(['vinylMasters' => function ($query) {
+                $query->with([
+                    'productable.recordLabel',
+                    'productable.artists',
+                    'productable.vinylSec',
+                    'productable.categories',
+                    'productable.media',
+                    'productable.tracks'
+                ])->take(5);
+            }])
+            ->get();
+
+        // Estrutura a resposta para corresponder ao que o front-end espera
+        $formattedData = $categories->map(function ($category) {
+            return [
+                'category' => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'slug' => $category->slug,
+                ],
+                'products' => $category->vinylMasters->map(function ($vinylMaster) {
+                    return $vinylMaster->product; // Retorna o 'product' associado
+                })
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $formattedData
+        ]);
+    }
 }
