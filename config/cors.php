@@ -21,6 +21,10 @@ return [
 
     'allowed_origins' => [
         env('FRONTEND_URL', 'http://localhost:5173'),
+        'https://rdvdiscos.com.br',
+        'https://www.rdvdiscos.com.br',
+        'http://localhost:3000',
+        'http://localhost:5174',
     ],
 
     'allowed_origins_patterns' => [],
