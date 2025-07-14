@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // 🔥 Configuração do Sanctum para API
         $middleware->api(prepend: [
             \App\Http\Middleware\CorsDebugMiddleware::class, // Debug middleware antes do CORS
+            \App\Http\Middleware\CorsForceMiddleware::class, // Força adição de headers CORS
             \Illuminate\Http\Middleware\HandleCors::class,
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);

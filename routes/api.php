@@ -50,6 +50,15 @@ Route::options('/cors-test', function () {
     return response()->json(['message' => 'CORS preflight request successful']);
 });
 
+Route::get('/cors-test', function () {
+    return response()->json([
+        'message' => 'CORS GET request successful',
+        'origin' => request()->header('Origin'),
+        'remote_addr' => request()->ip(),
+        'timestamp' => now()->toDateTimeString()
+    ]);
+});
+
 Route::post('/cors-test', function () {
     return response()->json([
         'message' => 'CORS test successful',
