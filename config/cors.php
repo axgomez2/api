@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
+    'allowed_origins' => array_filter(explode(',', env('CORS_ALLOWED_ORIGINS', 'https://rdvdiscos.com.br,http://localhost:5173'))) ?: [
         env('FRONTEND_URL', 'http://localhost:5173'),
         'https://rdvdiscos.com.br',
         'https://www.rdvdiscos.com.br',
@@ -35,6 +35,6 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => true,
+    'supports_credentials' => env('CORS_SUPPORTS_CREDENTIALS', true),
 
 ];

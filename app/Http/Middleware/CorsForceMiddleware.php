@@ -15,11 +15,24 @@ class CorsForceMiddleware
     {
         $response = $next($request);
 
-        // Adicionar cabeçalhos CORS manualmente a cada resposta
-        $response->headers->set('Access-Control-Allow-Origin', 'https://rdvdiscos.com.br');
+        // Obter origem da requisição
+        $origin = $request->header('Origin');
+        
+        // Obter origens permitidas do .env
+        $allowedOrigins = explode(',', env('CORS_ALLOWED_ORIGINS', 'https://rdvdiscos.com.br,http://localhost:5173'));
+        
+        // Verificar se a origem da requisição está na lista de origens permitidas
+        if ($origin && in_array($origin, $allowedOrigins)) {
+            // Adicionar cabeçalhos CORS com a origem específica
+            $response->headers->set('Access-Control-Allow-Origin', $origin);
+        } else {
+            // Caso contrário, usar o frontend_url como padrão
+            $response->headers->set('Access-Control-Allow-Origin', env('FRONTEND_URL', 'https://rdvdiscos.com.br'));
+        }
+        
         $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
         $response->headers->set('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-        $response->headers->set('Access-Control-Allow-Credentials', 'true');
+        $response->headers->set('Access-Control-Allow-Credentials', env('CORS_SUPPORTS_CREDENTIALS', 'true'));
 
         return $response;
     }
