@@ -36,6 +36,30 @@ Route::get('/config', function () {
             'client_id' => config('services.google.client_id'),
         ],
         'app_env' => config('app.env'),
+        'timestamp' => now()->toDateTimeString(),
+        'server_info' => [
+            'remote_addr' => request()->server('REMOTE_ADDR'),
+            'http_origin' => request()->server('HTTP_ORIGIN'),
+            'http_host' => request()->server('HTTP_HOST'),
+        ]
+    ]);
+});
+
+// 🔥 ENDPOINT DE TESTE CORS
+Route::options('/cors-test', function () {
+    return response()->json(['message' => 'CORS preflight request successful']);
+});
+
+Route::post('/cors-test', function () {
+    return response()->json([
+        'message' => 'CORS test successful',
+        'origin' => request()->header('Origin'),
+        'remote_addr' => request()->ip(),
+        'headers' => collect(request()->headers->all())
+            ->map(function ($item) {
+                return is_array($item) ? implode(', ', $item) : $item;
+            })
+            ->toArray(),
         'timestamp' => now()->toDateTimeString()
     ]);
 });

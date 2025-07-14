@@ -15,10 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // Registrar seu middleware com um alias simples
         $middleware->alias([
             'client.auth' => \App\Http\Middleware\EnsureClientAuthenticated::class,
+            'cors.debug' => \App\Http\Middleware\CorsDebugMiddleware::class,
         ]);
 
         // 🔥 Configuração do Sanctum para API
         $middleware->api(prepend: [
+            \App\Http\Middleware\CorsDebugMiddleware::class, // Debug middleware antes do CORS
             \Illuminate\Http\Middleware\HandleCors::class,
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);
