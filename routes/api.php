@@ -1,5 +1,32 @@
 <?php
 
+// DIAGNÓSTICO CORS - ROTA ESPECIAL
+Route::any('/cors-debug', function() {
+    // Adicionar cabeçalhos CORS manualmente
+    return response()->json([
+        'message' => 'CORS debug successful',
+        'request_method' => request()->method(),
+        'request_headers' => collect(request()->headers->all())
+            ->map(function ($item) {
+                return is_array($item) ? implode(', ', $item) : $item;
+            })
+            ->toArray(),
+        'timestamp' => now()->toDateTimeString(),
+        'env_settings' => [
+            'app_url' => config('app.url'),
+            'frontend_url' => config('app.frontend_url'),
+            'cors_allowed_origins' => env('CORS_ALLOWED_ORIGINS'),
+            'cors_supports_credentials' => env('CORS_SUPPORTS_CREDENTIALS')
+        ]
+    ])->withHeaders([
+        'Access-Control-Allow-Origin' => 'https://rdvdiscos.com.br',
+        'Access-Control-Allow-Methods' => 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers' => 'Origin, X-Requested-With, Content-Type, Accept, Authorization',
+        'Access-Control-Allow-Credentials' => 'true',
+        'Access-Control-Max-Age' => '86400'
+    ]);
+});
+
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ClientAuthController;
 use App\Http\Controllers\Api\ProductController;
