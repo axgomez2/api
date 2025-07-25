@@ -404,6 +404,12 @@ class ClientAuthController extends Controller
       try {
           $googleUser = Socialite::driver('google')->stateless()->user();
 
+          \Log::info('Google OAuth callback:', [
+              'email' => $googleUser->getEmail(),
+              'name' => $googleUser->getName(),
+              'google_id' => $googleUser->getId()
+          ]);
+
           $user = ClientUser::updateOrCreate(
               ['email' => $googleUser->getEmail()],
               [
@@ -413,6 +419,20 @@ class ClientAuthController extends Controller
                   'email_verified_at' => now(), // Marcar como verificado
               ]
           );
+
+          // Forçar atualização do email_verified_at se ainda não estiver definido
+          if (!$user->email_verified_at) {
+              $user->email_verified_at = now();
+              $user->save();
+              \Log::info('email_verified_at forçadamente atualizado para usuário:', ['user_id' => $user->id]);
+          }
+
+          \Log::info('Usuário Google OAuth processado:', [
+              'user_id' => $user->id,
+              'email' => $user->email,
+              'email_verified_at' => $user->email_verified_at,
+              'google_id' => $user->google_id
+          ]);
 
           $token = $user->createToken('client-auth-token')->plainTextToken;
 
