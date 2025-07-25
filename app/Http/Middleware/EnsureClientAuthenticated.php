@@ -18,11 +18,20 @@ class EnsureClientAuthenticated
   {
       $token = $request->bearerToken();
       
+      \Log::info('🔑 [Middleware] Processando requisição:', [
+          'url' => $request->url(),
+          'method' => $request->method(),
+          'has_token' => !empty($token),
+          'token_preview' => $token ? substr($token, 0, 20) . '...' : 'null',
+          'user_agent' => $request->userAgent()
+      ]);
+      
       if (!$token) {
-          \Log::warning('Token ausente na requisição', [
+          \Log::warning('❌ [Middleware] Token ausente na requisição', [
               'url' => $request->url(),
               'method' => $request->method(),
-              'headers' => $request->headers->all()
+              'authorization_header' => $request->header('Authorization'),
+              'all_headers' => $request->headers->all()
           ]);
           return response()->json(['message' => 'Token não fornecido'], 401);
       }
