@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Shop\AddToCartRequest;
+use App\Http\Resources\CartResource;
+use App\Http\Resources\CartItemResource;
 use App\Models\Cart;
 use App\Models\Product;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Exceptions\ProductNotAvailableException;
@@ -14,16 +17,14 @@ use App\Exceptions\ProductAlreadyInCartException;
 
 class CartController extends Controller
 {
+    use ApiResponse;
     public function index(Request $request)
     {
         try {
             $user = $request->user();
 
             if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Usuário não autenticado'
-                ], 401);
+                return $this->unauthorizedResponse('Usuário não autenticado');
             }
 
             $cart = Cart::getActiveForUser($user->id);
@@ -35,17 +36,10 @@ class CartController extends Controller
                 'items.product.productable.vinylSec.dimension'
             ])->find($cart->id);
 
-            return response()->json([
-                'success' => true,
-                'data' => $cartWithItems->items,
-                'meta' => [
-                    'cart_id' => $cart->id,
-                    'total_items' => $cartWithItems->total_items,
-                    'total_amount' => $cartWithItems->total_amount,
-                    'status' => $cart->status
-                ],
-                'message' => 'Carrinho carregado com sucesso'
-            ]);
+            return $this->successResponse(
+                new CartResource($cartWithItems),
+                'Carrinho carregado com sucesso'
+            );
 
         } catch (\Exception $e) {
             Log::error('Erro ao carregar carrinho:', [
@@ -54,39 +48,22 @@ class CartController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Erro interno do servidor ao carregar carrinho'
-            ], 500);
+            return $this->serverErrorResponse('Erro interno do servidor ao carregar carrinho');
         }
     }
 
-    public function store(Request $request)
+    public function store(AddToCartRequest $request)
     {
-        $user = $request->user(); // client.auth middleware garante que $user existe
+        $user = $request->user();
+        $data = $request->getValidatedData();
+        
         Log::info('🛒 Tentativa de adicionar ao carrinho:', [
             'user_id' => $user->id,
-            'request_data' => $request->all(),
+            'product_id' => $data['product_id'],
+            'quantity' => $data['quantity']
         ]);
 
-        $validator = Validator::make($request->all(), [
-            'product_id' => 'required|integer|exists:products,id'
-        ]);
-
-        if ($validator->fails()) {
-            Log::warning('❌ Validação falhou para Cart@store:', $validator->errors()->toArray());
-            return response()->json([
-                'success' => false,
-                'message' => 'Dados inválidos.',
-                'errors' => $validator->errors()
-            ], 422); // HTTP 422 Unprocessable Entity
-        }
-
-        $productId = $request->input('product_id');
-        $product = Product::find($productId); // 'exists' na validação já garante que ele existe
-
-        // A validação 'exists' já garante que o produto foi encontrado.
-        // Se, por algum motivo muito estranho, não for, o código abaixo falhará.
+        $product = Product::find($data['product_id']);
 
         try {
             DB::beginTransaction();
@@ -94,38 +71,32 @@ class CartController extends Controller
             $cart = Cart::getActiveForUser($user->id);
             Log::info('✅ Carrinho obtido para Cart@store:', ['cart_id' => $cart->id, 'user_id' => $user->id]);
 
-            $cartItem = $cart->addItem($product); // Lógica de negócio movida para o modelo
+            $cartItem = $cart->addItem($product);
             Log::info('✅ Item adicionado ao carrinho via Cart@store:', ['cart_item_id' => $cartItem->id, 'product_id' => $product->id]);
 
             $cartItem->load('product.productable.artists', 'product.productable.vinylSec.weight', 'product.productable.vinylSec.dimension');
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'data' => $cartItem,
-                'message' => 'Produto adicionado ao carrinho com sucesso!'
-            ], 201); // HTTP 201 Created
+            return $this->createdResponse(
+                new CartItemResource($cartItem),
+                'Produto adicionado ao carrinho com sucesso!'
+            );
 
         } catch (ProductNotAvailableException $e) {
             DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
+            return $this->errorResponse($e->getMessage(), 400);
         } catch (ProductAlreadyInCartException $e) {
             DB::rollBack();
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage(),
-            'already_in_cart' => true
-        ], 400);
+            return $this->errorResponse($e->getMessage(), 400, ['already_in_cart' => true]);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Ocorreu um erro inesperado ao adicionar o produto ao carrinho.'
-            ], 500); // HTTP 500 Internal Server Error
+            Log::error('Erro ao adicionar ao carrinho:', [
+                'user_id' => $user->id,
+                'product_id' => $data['product_id'],
+                'error' => $e->getMessage()
+            ]);
+            return $this->serverErrorResponse('Ocorreu um erro inesperado ao adicionar o produto ao carrinho.');
         }
     }
 

@@ -43,8 +43,7 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ArtistController;
 use App\Http\Controllers\Api\RecordLabelController;
 use Illuminate\Http\Request;
-use App\Http\Controllers\Admin\MarketAnalysisController;
-use App\Http\Controllers\Admin\StatusController;
+// use App\Http\Controllers\Admin\StatusController;
 
 // 🔥 ENDPOINT DE CONFIGURAÇÃO (SEM AUTENTICAÇÃO)
 Route::get('/config', function () {
@@ -72,62 +71,20 @@ Route::get('/config', function () {
     ]);
 });
 
-// 🔥 ENDPOINT DE TESTE CORS
-Route::options('/cors-test', function () {
-    return response()->json(['message' => 'CORS preflight request successful']);
-});
 
-Route::get('/cors-test', function () {
-    return response()->json([
-        'message' => 'CORS GET request successful',
-        'origin' => request()->header('Origin'),
-        'remote_addr' => request()->ip(),
-        'timestamp' => now()->toDateTimeString()
-    ]);
-});
 
-Route::post('/cors-test', function () {
-    return response()->json([
-        'message' => 'CORS test successful',
-        'origin' => request()->header('Origin'),
-        'remote_addr' => request()->ip(),
-        'headers' => collect(request()->headers->all())
-            ->map(function ($item) {
-                return is_array($item) ? implode(', ', $item) : $item;
-            })
-            ->toArray(),
-        'timestamp' => now()->toDateTimeString()
-    ]);
-});
 
-// 🔥 ROTA DE DEBUG (PRIMEIRA para não conflitar)
-Route::get('/debug/routes', function () {
-    $routes = collect(Route::getRoutes())->map(function ($route) {
-        return [
-            'method' => implode('|', $route->methods()),
-            'uri' => $route->uri(),
-            'name' => $route->getName(),
-            'action' => ltrim($route->getActionName(), '\\'),
-        ];
-    });
 
-    return response()->json([
-        'total_routes' => $routes->count(),
-        'api_routes' => $routes->filter(function($route) {
-            return str_starts_with($route['uri'], 'api/');
-        })->values(),
-        'client_routes' => $routes->filter(function($route) {
-            return str_starts_with($route['uri'], 'api/client');
-        })->values()
-    ]);
-});
+
+
 
 // 🔥 ROTAS CLIENT - SEM AUTENTICAÇÃO
 Route::post('/client/register', [ClientAuthController::class, 'register'])->name('client.register');
 Route::post('/client/login', [ClientAuthController::class, 'login'])->middleware(['throttle:5,1'])->name('client.login');
 
-Route::get('/client/redirectToGoogle', [ClientAuthController::class, 'redirectToGoogle'])->name('client.google.redirect');
-Route::get('/client/handleGoogleCallback', [ClientAuthController::class, 'handleGoogleCallback'])->name('client.google.callback');
+// Google OAuth routes
+Route::get('/client/auth/google/redirect', [ClientAuthController::class, 'redirectToGoogle'])->name('client.google.redirect');
+Route::get('/client/auth/google/callback', [ClientAuthController::class, 'handleGoogleCallback'])->name('client.google.callback');
 
 // Rotas de verificação de email
 Route::get('/client/email/verify/{id}/{hash}', [ClientAuthController::class, 'verifyEmail'])
@@ -495,10 +452,10 @@ Route::get('/test-card-payment', function () {
     }
 });
 
-Route::middleware(['auth:sanctum', 'verified'])->group(function () {
-    // Rotas para análise de mercado
-    Route::get('/market-analysis-chart-data', [MarketAnalysisController::class, 'getChartData']);
-    Route::resource('market-analysis', MarketAnalysisController::class)->except(['create', 'edit']);
-});
+// Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+//     // Rotas para análise de mercado
+//     Route::get('/market-analysis-chart-data', [MarketAnalysisController::class, 'getChartData']);
+//     Route::resource('market-analysis', MarketAnalysisController::class)->except(['create', 'edit']);
+// });
 
-Route::get('/status', [StatusController::class, 'index']);
+// Route::get('/status', [StatusController::class, 'index']);

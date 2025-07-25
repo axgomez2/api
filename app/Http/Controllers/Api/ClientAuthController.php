@@ -3,7 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Resources\UserResource;
 use App\Models\ClientUser;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -14,23 +18,11 @@ use App\Notifications\ClientVerifyEmail;
 
 class ClientAuthController extends Controller
 {
-  public function register(Request $request)
+    use ApiResponse;
+  public function register(RegisterRequest $request)
   {
       try {
-          $validator = Validator::make($request->all(), [
-              'name' => 'required|string|max:255',
-              'email' => 'required|email|unique:client_users,email|max:255',
-              'password' => 'required|min:6|confirmed',
-          ]);
-
-          if ($validator->fails()) {
-              return response()->json([
-                  'message' => 'Dados inválidos',
-                  'errors' => $validator->errors()
-              ], 422);
-          }
-
-          $data = $validator->validated();
+          $data = $request->validated();
 
           \Log::info('Tentativa de registro:', [
               'email' => $data['email'],
@@ -53,10 +45,7 @@ class ClientAuthController extends Controller
           // 🔥 ADICIONAR: Verificar se o token foi criado corretamente
           if (!$token) {
               \Log::error('Falha ao criar token para usuário:', ['user_id' => $user->id]);
-              return response()->json([
-                  'message' => 'Erro ao criar token de autenticação',
-                  'error' => 'Token creation failed'
-              ], 500);
+              return $this->serverErrorResponse('Erro ao criar token de autenticação');
           }
 
           \Log::info('Registro bem-sucedido:', [
@@ -67,17 +56,10 @@ class ClientAuthController extends Controller
               'token_length' => strlen($token)
           ]);
 
-          return response()->json([
-              'success' => true,
-              'message' => 'Conta criada com sucesso!',
+          return $this->createdResponse([
               'token' => $token,
-              'user' => [
-                  'id' => $user->id,
-                  'name' => $user->name,
-                  'email' => $user->email,
-                  'created_at' => $user->created_at
-              ]
-          ], 201);
+              'user' => new UserResource($user)
+          ], 'Conta criada com sucesso!');
 
       } catch (\Exception $e) {
           \Log::error('Erro no registro:', [
@@ -87,41 +69,21 @@ class ClientAuthController extends Controller
               'trace' => $e->getTraceAsString()
           ]);
 
-          return response()->json([
-              'success' => false,
-              'message' => 'Erro interno do servidor',
-              'error' => $e->getMessage()
-          ], 500);
+          return $this->serverErrorResponse('Erro interno do servidor');
       }
   }
 
-  public function login(Request $request)
+  public function login(LoginRequest $request)
   {
       try {
-          $validator = Validator::make($request->all(), [
-              'email' => 'required|email',
-              'password' => 'required',
-          ]);
-
-          if ($validator->fails()) {
-              return response()->json([
-                  'message' => 'Dados inválidos',
-                  'errors' => $validator->errors()
-              ], 422);
-          }
 
           \Log::info('Tentativa de login:', ['email' => $request->email]);
 
           $user = ClientUser::where('email', $request->email)->first();
 
-          if (!$user) {
-              \Log::warning('Login falhou - usuário não encontrado:', ['email' => $request->email]);
-              return response()->json(['message' => 'Credenciais inválidas'], 401);
-          }
-
-          if (!Hash::check($request->password, $user->password)) {
-              \Log::warning('Login falhou - senha incorreta:', ['email' => $request->email]);
-              return response()->json(['message' => 'Credenciais inválidas'], 401);
+          if (!$user || !Hash::check($request->password, $user->password)) {
+              \Log::warning('Login falhou:', ['email' => $request->email]);
+              return $this->unauthorizedResponse('Credenciais inválidas');
           }
 
           // 🔥 MELHORAR: Criar token com nome mais específico
@@ -131,10 +93,7 @@ class ClientAuthController extends Controller
           // 🔥 ADICIONAR: Verificar se o token foi criado corretamente
           if (!$token) {
               \Log::error('Falha ao criar token para usuário:', ['user_id' => $user->id]);
-              return response()->json([
-                  'message' => 'Erro ao criar token de autenticação',
-                  'error' => 'Token creation failed'
-              ], 500);
+              return $this->serverErrorResponse('Erro ao criar token de autenticação');
           }
 
           \Log::info('Login bem-sucedido:', [
@@ -145,17 +104,10 @@ class ClientAuthController extends Controller
               'token_length' => strlen($token)
           ]);
 
-          return response()->json([
-              'success' => true,
-              'message' => 'Login realizado com sucesso!',
+          return $this->successResponse([
               'token' => $token,
-              'user' => [
-              'id' => $user->id,
-              'name' => $user->name,
-              'email' => $user->email,
-              'created_at' => $user->created_at
-              ]
-          ], 200);
+              'user' => new UserResource($user)
+          ], 'Login realizado com sucesso!');
 
       } catch (\Exception $e) {
           \Log::error('Erro no login:', [
@@ -165,11 +117,7 @@ class ClientAuthController extends Controller
               'trace' => $e->getTraceAsString()
           ]);
 
-          return response()->json([
-              'success' => false,
-              'message' => 'Erro interno do servidor',
-              'error' => $e->getMessage()
-          ], 500);
+          return $this->serverErrorResponse('Erro interno do servidor');
       }
   }
 
@@ -180,7 +128,7 @@ class ClientAuthController extends Controller
           $user = $request->user();
 
           if (!$user) {
-              return response()->json(['message' => 'Usuário não autenticado'], 401);
+              return $this->unauthorizedResponse('Usuário não autenticado');
           }
 
           \Log::info('Dados do usuário solicitados:', [
@@ -188,21 +136,9 @@ class ClientAuthController extends Controller
               'email' => $user->email
           ]);
 
-          return response()->json([
-              'user' => [
-                  'id' => $user->id,
-                  'name' => $user->name,
-                  'email' => $user->email,
-                  'phone' => $user->phone,
-                  'cpf' => $user->cpf,
-                  'birth_date' => $user->birth_date,
-                  'email_verified_at' => $user->email_verified_at,
-                  'formatted_cpf' => $user->formatted_cpf,
-                  'formatted_phone' => $user->formatted_phone,
-                  'created_at' => $user->created_at,
-                  'updated_at' => $user->updated_at,
-              ]
-          ], 200);
+          return $this->successResponse([
+              'user' => new UserResource($user)
+          ]);
 
       } catch (\Exception $e) {
           \Log::error('Erro ao buscar usuário:', [
@@ -210,10 +146,7 @@ class ClientAuthController extends Controller
               'trace' => $e->getTraceAsString()
           ]);
 
-          return response()->json([
-              'message' => 'Erro interno do servidor',
-              'error' => $e->getMessage()
-          ], 500);
+          return $this->serverErrorResponse('Erro interno do servidor');
       }
   }
 
