@@ -17,3 +17,10 @@ Route::get('/email/verify/{id}/{hash}', [ClientAuthController::class, 'verifyEma
     ->middleware(['signed'])
     ->name('verification.verify');
 
+// 🔥 ROTA DE TESTE GOOGLE OAUTH (para desenvolvimento local)
+Route::get('/test-google', [ClientAuthController::class, 'redirectToGoogle'])
+    ->name('test.google');
+
+Route::get('/test-google-callback', [ClientAuthController::class, 'handleGoogleCallback'])
+    ->name('test.google.callback');
+

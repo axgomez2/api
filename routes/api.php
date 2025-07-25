@@ -105,6 +105,7 @@ Route::prefix('shipping')->group(function () {
 Route::middleware('client.auth')->group(function () {
     // Rotas do cliente autenticado
     Route::get('/client/me', [ClientAuthController::class, 'me']);
+    Route::get('/me', [ClientAuthController::class, 'me']); // Rota simplificada para compatibilidade
     Route::put('/client/profile', [ClientAuthController::class, 'updateProfile']);
     Route::put('/client/password', [ClientAuthController::class, 'changePassword']);
     Route::post('/client/resend-verification', [ClientAuthController::class, 'resendVerificationEmail']);
