@@ -277,4 +277,93 @@ class WishlistController extends Controller
             ], 500);
         }
     }
+
+    // Método toggle para adicionar/remover da wishlist
+    public function toggle(Request $request)
+    {
+        try {
+            $user = $request->user();
+            
+            if (!$user) {
+                return response()->json(['message' => 'Usuário não autenticado'], 401);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'product_id' => 'required|integer|exists:products,id'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Dados inválidos',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $productId = $request->product_id;
+
+            // Verificar se já existe na wishlist
+            $wishlistItem = Wishlist::where('user_id', $user->id)
+                ->where('product_id', $productId)
+                ->first();
+
+            if ($wishlistItem) {
+                // Se existe, remover
+                $wishlistItem->delete();
+                
+                \Log::info('Produto removido da wishlist via toggle:', [
+                    'user_id' => $user->id,
+                    'product_id' => $productId
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'action' => 'removed',
+                    'message' => 'Produto removido da wishlist'
+                ]);
+            } else {
+                // Se não existe, adicionar
+                $product = Product::find($productId);
+                
+                if (!$product) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Produto não encontrado'
+                    ], 404);
+                }
+
+                $wishlistItem = Wishlist::create([
+                    'user_id' => $user->id,
+                    'product_id' => $productId
+                ]);
+
+                \Log::info('Produto adicionado à wishlist via toggle:', [
+                    'user_id' => $user->id,
+                    'product_id' => $productId,
+                    'wishlist_id' => $wishlistItem->id
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'action' => 'added',
+                    'data' => $product,
+                    'message' => 'Produto adicionado à wishlist'
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Erro no toggle da wishlist:', [
+                'user_id' => $user->id ?? null,
+                'product_id' => $request->product_id ?? null,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro interno do servidor',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

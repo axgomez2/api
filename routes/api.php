@@ -124,6 +124,7 @@ Route::middleware('client.auth')->group(function () {
     Route::prefix('client/wishlist')->group(function () {
         Route::get('/', [WishlistController::class, 'index']);
         Route::post('/', [WishlistController::class, 'store']);
+        Route::post('/toggle', [WishlistController::class, 'toggle']); // 🔥 NOVA ROTA TOGGLE
         Route::get('/{productId}/check', [WishlistController::class, 'check']); // 🔥 NOVA ROTA
         Route::delete('/{productId}', [WishlistController::class, 'destroy']);
         Route::delete('/', [WishlistController::class, 'clear']);
@@ -133,6 +134,7 @@ Route::middleware('client.auth')->group(function () {
     Route::prefix('client/wantlist')->group(function () {
         Route::get('/', [WantlistController::class, 'index']);
         Route::post('/', [WantlistController::class, 'store']);
+        Route::post('/toggle', [WantlistController::class, 'toggle']); // 🔥 NOVA ROTA TOGGLE
         Route::delete('/{productId}', [WantlistController::class, 'destroy']);
         Route::delete('/', [WantlistController::class, 'clear']);
     });
