@@ -341,4 +341,219 @@ class ShippingController extends Controller
             ], 404);
         }
     }
+
+    /**
+     * Cálculo básico de frete (SEM AUTENTICAÇÃO)
+     * POST /api/shipping/calculate
+     */
+    public function calculate(Request $request)
+    {
+        try {
+            $data = $request->validate([
+                'cep_destino' => 'required|string|size:8',
+                'products' => 'required|array',
+                'products.*.id' => 'required|integer',
+                'products.*.quantity' => 'required|integer|min:1',
+                'products.*.weight' => 'nullable|numeric',
+                'products.*.dimensions' => 'nullable|array'
+            ]);
+
+            // Preparar dados para o Melhor Envio
+            $requestData = $this->prepareShippingData($data);
+            
+            $result = $this->me->calculateShipping($requestData);
+
+            return response()->json([
+                'success' => true,
+                'data' => $result
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Erro ao calcular frete público:', [
+                'request' => $request->all(),
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao calcular frete: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Obter tarifas disponíveis (SEM AUTENTICAÇÃO)
+     * POST /api/shipping/rates
+     */
+    public function rates(Request $request)
+    {
+        try {
+            $data = $request->validate([
+                'cep_origem' => 'required|string|size:8',
+                'cep_destino' => 'required|string|size:8',
+                'volumes' => 'required|array',
+                'volumes.*.height' => 'required|numeric|min:1',
+                'volumes.*.width' => 'required|numeric|min:1', 
+                'volumes.*.length' => 'required|numeric|min:1',
+                'volumes.*.weight' => 'required|numeric|min:0.1'
+            ]);
+
+            $result = $this->me->calculateShipping($data);
+
+            return response()->json([
+                'success' => true,
+                'data' => $result
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Erro ao obter tarifas:', [
+                'request' => $request->all(),
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao obter tarifas: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Obter serviços disponíveis (SEM AUTENTICAÇÃO)
+     * GET /api/shipping/services
+     */
+    public function getServices()
+    {
+        try {
+            $services = [
+                [
+                    'id' => 1,
+                    'name' => 'PAC',
+                    'company' => 'Correios',
+                    'description' => 'Entrega econômica'
+                ],
+                [
+                    'id' => 2,
+                    'name' => 'SEDEX',
+                    'company' => 'Correios', 
+                    'description' => 'Entrega expressa'
+                ],
+                [
+                    'id' => 3,
+                    'name' => 'Jadlog',
+                    'company' => 'Jadlog',
+                    'description' => 'Entrega rápida'
+                ]
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $services
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao obter serviços'
+            ], 500);
+        }
+    }
+
+    /**
+     * Validar CEP (SEM AUTENTICAÇÃO)
+     * POST /api/shipping/validate-cep
+     */
+    public function validateCep(Request $request)
+    {
+        try {
+            $data = $request->validate([
+                'cep' => 'required|string'
+            ]);
+
+            $cep = preg_replace('/\D/', '', $data['cep']);
+            
+            if (strlen($cep) !== 8) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'CEP deve ter 8 dígitos'
+                ], 400);
+            }
+
+            // Consultar ViaCEP para validar
+            $response = Http::get("https://viacep.com.br/ws/{$cep}/json/");
+            
+            if (!$response->successful()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erro ao consultar CEP'
+                ], 500);
+            }
+
+            $address = $response->json();
+            
+            if (isset($address['erro'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'CEP não encontrado'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'cep' => $cep,
+                    'logradouro' => $address['logradouro'] ?? '',
+                    'bairro' => $address['bairro'] ?? '',
+                    'cidade' => $address['localidade'] ?? '',
+                    'uf' => $address['uf'] ?? '',
+                    'valid' => true
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Erro ao validar CEP:', [
+                'request' => $request->all(),
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao validar CEP'
+            ], 500);
+        }
+    }
+
+    /**
+     * Preparar dados para envio ao Melhor Envio
+     */
+    private function prepareShippingData(array $data)
+    {
+        $volumes = [];
+        $totalWeight = 0;
+
+        foreach ($data['products'] as $product) {
+            $weight = $product['weight'] ?? 0.3; // Peso padrão para vinyl
+            $dimensions = $product['dimensions'] ?? [
+                'height' => 0.5,
+                'width' => 31.5,
+                'length' => 31.5
+            ];
+
+            for ($i = 0; $i < $product['quantity']; $i++) {
+                $volumes[] = [
+                    'height' => $dimensions['height'],
+                    'width' => $dimensions['width'],
+                    'length' => $dimensions['length'],
+                    'weight' => $weight
+                ];
+                $totalWeight += $weight;
+            }
+        }
+
+        return [
+            'from' => [
+                'postal_code' => config('shipping.origin_cep', '01310-100')
+            ],
+            'to' => [
+                'postal_code' => $data['cep_destino']
+            ],
+            'volumes' => $volumes
+        ];
+    }
 }

@@ -234,6 +234,15 @@ Route::prefix('products')->group(function () {
     Route::get('/{slug}', [ProductController::class, 'show']);
 });
 
+// 🔥 ROTAS DE SHIPPING PÚBLICAS (SEM AUTENTICAÇÃO)
+// Estas rotas podem ser acessadas sem login para cálculo de frete
+Route::prefix('shipping')->group(function () {
+    Route::post('/calculate', [ShippingController::class, 'calculate']); // Cálculo básico
+    Route::post('/rates', [ShippingController::class, 'rates']); // Tarifas disponíveis
+    Route::get('/services', [ShippingController::class, 'getServices']); // Serviços disponíveis
+    Route::post('/validate-cep', [ShippingController::class, 'validateCep']); // Validar CEP
+});
+
 // Rotas para VinylMaster (dados específicos sobre discos)
 Route::prefix('vinyl')->group(function () {
     Route::get('/', [VinylMasterController::class, 'index']);
