@@ -24,8 +24,14 @@ class SeoController extends Controller
             // Preparar dados para Open Graph
             $ogData = $this->prepareOpenGraphData($product);
             
-            // Renderizar HTML com meta tags
-            return $this->renderProductHtml($ogData);
+            // Detectar se é bot do WhatsApp/Facebook
+            if ($this->isSocialBot()) {
+                // Servir HTML com meta tags para bots
+                return $this->renderProductHtml($ogData);
+            } else {
+                // Redirecionar usuários normais para o frontend
+                return redirect($ogData['url']);
+            }
             
         } catch (\Exception $e) {
             \Log::error('Erro ao gerar página SEO do produto:', [
@@ -35,6 +41,38 @@ class SeoController extends Controller
             
             return $this->renderNotFound();
         }
+    }
+    
+    /**
+     * Detectar se é bot de rede social
+     */
+    private function isSocialBot()
+    {
+        $userAgent = request()->header('User-Agent', '');
+        
+        $bots = [
+            'WhatsApp',
+            'facebookexternalhit',
+            'Facebot',
+            'Twitterbot',
+            'LinkedInBot',
+            'TelegramBot',
+            'SkypeUriPreview',
+            'SlackBot',
+            'DiscordBot'
+        ];
+        
+        foreach ($bots as $bot) {
+            if (stripos($userAgent, $bot) !== false) {
+                \Log::info('Bot detectado:', [
+                    'bot' => $bot,
+                    'user_agent' => $userAgent
+                ]);
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     /**
@@ -254,12 +292,12 @@ class SeoController extends Controller
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="https://rdvdiscos.com.br/favicon.ico">
     
-    <!-- Redirecionamento automático para o frontend -->
+    <!-- Redirecionamento manual para o frontend -->
     <script>
-        // Redirecionar para o frontend após 2 segundos
-        setTimeout(function() {
+        // Função para redirecionar manualmente
+        function goToProduct() {
             window.location.href = "' . $ogData['url'] . '";
-        }, 2000);
+        }
     </script>
     
     <style>
@@ -267,41 +305,115 @@ class SeoController extends Controller
             font-family: Arial, sans-serif;
             background: #1a1a1a;
             color: #fff;
-            text-align: center;
-            padding: 50px 20px;
+            padding: 20px;
+            line-height: 1.6;
         }
         .container {
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
+        }
+        .seo-info {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .product-preview {
+            background: #333;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
         }
         .product-image {
             max-width: 300px;
             border-radius: 10px;
             margin: 20px 0;
         }
-        .loading {
-            margin: 20px 0;
+        .actions {
+            margin: 30px 0;
         }
-        .redirect-info {
-            color: #888;
-            font-size: 14px;
-            margin-top: 30px;
+        .btn-primary, .btn-secondary {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary:hover {
+            background: #45a049;
+        }
+        .btn-secondary {
+            background: #2196F3;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #1976D2;
+        }
+        .meta-info {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: left;
+        }
+        .meta-info ul {
+            list-style: none;
+            padding: 0;
+        }
+        .meta-info li {
+            margin: 10px 0;
+            padding: 10px;
+            background: #333;
+            border-radius: 5px;
+        }
+        .meta-info a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        .meta-info a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>' . htmlspecialchars($ogData['title']) . '</h1>
-        <img src="' . htmlspecialchars($ogData['image']) . '" alt="' . htmlspecialchars($ogData['title']) . '" class="product-image">
-        <p>' . htmlspecialchars($ogData['description']) . '</p>
-        
-        <div class="loading">
-            <p>🎵 Carregando produto...</p>
-            <p>Você será redirecionado automaticamente.</p>
+        <div class="seo-info">
+            <h2>🔗 Página SEO - Open Graph</h2>
+            <p>Esta página contém meta tags Open Graph para compartilhamento no WhatsApp/Facebook.</p>
         </div>
         
-        <div class="redirect-info">
-            <p>Se não for redirecionado automaticamente, <a href="' . $ogData['url'] . '" style="color: #4CAF50;">clique aqui</a>.</p>
+        <div class="product-preview">
+            <h1>' . htmlspecialchars($ogData['title']) . '</h1>
+            <img src="' . htmlspecialchars($ogData['image']) . '" alt="' . htmlspecialchars($ogData['title']) . '" class="product-image">
+            <p>' . htmlspecialchars($ogData['description']) . '</p>
+            
+            <div class="actions">
+                <button onclick="goToProduct()" class="btn-primary">
+                    🎵 Ver Produto na Loja
+                </button>
+                <a href="' . $ogData['url'] . '" class="btn-secondary">
+                    🔗 Link Direto
+                </a>
+            </div>
+        </div>
+        
+        <div class="meta-info">
+            <h3>📝 Meta Tags Open Graph:</h3>
+            <ul>
+                <li><strong>Título:</strong> ' . htmlspecialchars($ogData['title']) . '</li>
+                <li><strong>Descrição:</strong> ' . htmlspecialchars($ogData['description']) . '</li>
+                <li><strong>Imagem:</strong> <a href="' . htmlspecialchars($ogData['image']) . '" target="_blank">Ver imagem</a></li>
+                <li><strong>URL:</strong> <a href="' . $ogData['url'] . '" target="_blank">' . htmlspecialchars($ogData['url']) . '</a></li>
+            </ul>
         </div>
     </div>
 </body>

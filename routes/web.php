@@ -43,3 +43,24 @@ Route::get('/seo-test', function() {
         ->header('Content-Type', 'text/html');
 });
 
+// 🤖 ROTA DE TESTE BOT DETECTION
+Route::get('/bot-test', function() {
+    $userAgent = request()->header('User-Agent', '');
+    $isBot = false;
+    
+    $bots = ['WhatsApp', 'facebookexternalhit', 'Facebot', 'Twitterbot'];
+    foreach ($bots as $bot) {
+        if (stripos($userAgent, $bot) !== false) {
+            $isBot = true;
+            break;
+        }
+    }
+    
+    $html = '<h1>Bot Detection Test</h1>';
+    $html .= '<p><strong>User Agent:</strong> ' . htmlspecialchars($userAgent) . '</p>';
+    $html .= '<p><strong>Is Bot:</strong> ' . ($isBot ? 'YES' : 'NO') . '</p>';
+    $html .= '<p><strong>Action:</strong> ' . ($isBot ? 'Show meta tags' : 'Redirect to frontend') . '</p>';
+    
+    return response($html)->header('Content-Type', 'text/html');
+});
+
