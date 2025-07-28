@@ -230,17 +230,10 @@ Route::prefix('products')->group(function () {
     Route::get('/type/{typeId}', [ProductController::class, 'filterByType']);
     Route::get('/vinyl', [ProductController::class, 'vinylProducts']);
     Route::get('/vinyl/latest/{limit?}', [ProductController::class, 'latestVinyls']);
+    Route::get('/vinyl/newest/{limit?}', [ProductController::class, 'newestVinyls']); // Últimos cadastrados
+    Route::get('/vinyl/new-arrivals/{limit?}', [ProductController::class, 'newArrivals']); // is_new = 1
     Route::get('/vinyl/{slug}', [ProductController::class, 'vinylDetail']);
     Route::get('/{slug}', [ProductController::class, 'show']);
-});
-
-// 🔥 ROTAS DE SHIPPING PÚBLICAS (SEM AUTENTICAÇÃO)
-// Estas rotas podem ser acessadas sem login para cálculo de frete
-Route::prefix('shipping')->group(function () {
-    Route::post('/calculate', [ShippingController::class, 'calculate']); // Cálculo básico
-    Route::post('/rates', [ShippingController::class, 'rates']); // Tarifas disponíveis
-    Route::get('/services', [ShippingController::class, 'getServices']); // Serviços disponíveis
-    Route::post('/validate-cep', [ShippingController::class, 'validateCep']); // Validar CEP
 });
 
 // Rotas para VinylMaster (dados específicos sobre discos)
@@ -255,6 +248,7 @@ Route::prefix('vinyl')->group(function () {
 // Rotas para Categorias (CatStyleShop)
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/categories-with-products', [CategoryController::class, 'fetchWithProducts']);
+Route::get('/categories/{id}/latest-vinyls/{limit?}', [CategoryController::class, 'latestVinylsByCategory']); // Últimos discos por categoria
 Route::get('/categories/{slug}', [CategoryController::class, 'show']);
 Route::get('/categories/{slug}/products', [CategoryController::class, 'productsByCategory']);
 

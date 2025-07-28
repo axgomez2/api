@@ -112,4 +112,60 @@ class CategoryController extends Controller
             'data' => $formattedData
         ]);
     }
+
+    /**
+     * Buscar os últimos discos de uma categoria específica (otimizado para carousel)
+     * 
+     * @param int $id ID da categoria
+     * @param int $limit Limite de discos (padrão: 10)
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function latestVinylsByCategory($id, $limit = 10)
+    {
+        try {
+            // Verificar se a categoria existe
+            $category = CatStyleShop::find($id);
+            
+            if (!$category) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Categoria não encontrada'
+                ], 404);
+            }
+
+            // Buscar os últimos discos desta categoria usando a tabela pivot
+            $products = Product::where('productable_type', 'App\\Models\\VinylMaster')
+                ->whereHas('productable', function ($query) use ($id) {
+                    $query->whereHas('categories', function ($categoryQuery) use ($id) {
+                        $categoryQuery->where('cat_style_shops.id', $id);
+                    });
+                })
+                ->with([
+                    'productable.recordLabel:id,name',
+                    'productable.artists:id,name',
+                    'productable.vinylSec:id,vinyl_master_id,price,promotional_price,image_url,is_new',
+                    'productable.categories:id,name,slug'
+                ])
+                ->orderBy('created_at', 'desc')
+                ->limit($limit)
+                ->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $products,
+                'category' => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'slug' => $category->slug
+                ],
+                'message' => "Retornando os {$products->count()} discos mais recentes da categoria '{$category->name}'"
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Erro ao buscar discos da categoria: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

@@ -274,4 +274,59 @@ class ProductController extends Controller
             'data' => $products
         ]);
     }
+
+    /**
+     * Retorna os 2 últimos discos cadastrados na plataforma (otimizado para home)
+     *
+     * @param int $limit Quantidade máxima de discos a retornar (padrão: 2)
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function newestVinyls($limit = 20)
+    {
+        $products = Product::where('productable_type', 'App\\Models\\VinylMaster')
+            ->with([
+                'productable.recordLabel:id,name',
+                'productable.artists:id,name',
+                'productable.vinylSec:id,vinyl_master_id,price,promotional_price,image_url,is_new',
+                'productable.categories:id,name,slug'
+            ])
+            ->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $products,
+            'message' => "Retornando os {$products->count()} discos mais recentes"
+        ]);
+    }
+
+    /**
+     * Retorna discos marcados como novos (is_new = 1) limitado a 10 itens
+     *
+     * @param int $limit Quantidade máxima de discos a retornar (padrão: 10)
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function newArrivals($limit = 10)
+    {
+        $products = Product::where('productable_type', 'App\\Models\\VinylMaster')
+            ->with([
+                'productable.recordLabel:id,name',
+                'productable.artists:id,name',
+                'productable.vinylSec:id,vinyl_master_id,price,promotional_price,image_url,is_new',
+                'productable.categories:id,name,slug'
+            ])
+            ->whereHas('productable.vinylSec', function ($query) {
+                $query->where('is_new', 1);
+            })
+            ->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $products,
+            'message' => "Retornando {$products->count()} novos lançamentos"
+        ]);
+    }
 }
