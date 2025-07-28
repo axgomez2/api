@@ -137,15 +137,16 @@ class CategoryController extends Controller
             $products = Product::where('productable_type', 'App\\Models\\VinylMaster')
                 ->whereHas('productable', function ($query) use ($id) {
                     $query->whereHas('categories', function ($categoryQuery) use ($id) {
-                        $categoryQuery->where('cat_style_shops.id', $id);
+                        $categoryQuery->where('cat_style_shop.id', $id);
                     });
                 })
                 ->with([
                     'productable.recordLabel:id,name',
                     'productable.artists:id,name,slug',
-                    'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_new',
+                    'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_new,stock,in_stock',
                     'productable.categories:id,name,slug',
-                    'productable.media'
+                    'productable.media',
+                    'productable:id,title,slug,cover_image,release_year,country'
                 ])
                 ->orderBy('created_at', 'desc')
                 ->limit($limit)

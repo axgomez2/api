@@ -287,9 +287,10 @@ class ProductController extends Controller
             ->with([
                 'productable.recordLabel:id,name',
                 'productable.artists:id,name,slug',
-                'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_new',
+                'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_new,stock,in_stock',
                 'productable.categories:id,name,slug',
-                'productable.media'
+                'productable.media',
+                'productable:id,title,slug,cover_image,release_year,country'
             ])
             ->orderBy('created_at', 'desc')
             ->limit($limit)
@@ -314,9 +315,10 @@ class ProductController extends Controller
             ->with([
                 'productable.recordLabel:id,name',
                 'productable.artists:id,name,slug',
-                'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_new',
+                'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_new,stock,in_stock',
                 'productable.categories:id,name,slug',
-                'productable.media'
+                'productable.media',
+                'productable:id,title,slug,cover_image,release_year,country'
             ])
             ->whereHas('productable.vinylSec', function ($query) {
                 $query->where('is_new', 1);
