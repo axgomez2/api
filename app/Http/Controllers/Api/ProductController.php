@@ -287,7 +287,7 @@ class ProductController extends Controller
             ->with([
                 'productable.recordLabel:id,name',
                 'productable.artists:id,name',
-                'productable.vinylSec:id,vinyl_master_id,price,promotional_price,image_url,is_new',
+                'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_new',
                 'productable.categories:id,name,slug'
             ])
             ->orderBy('created_at', 'desc')
@@ -313,7 +313,7 @@ class ProductController extends Controller
             ->with([
                 'productable.recordLabel:id,name',
                 'productable.artists:id,name',
-                'productable.vinylSec:id,vinyl_master_id,price,promotional_price,image_url,is_new',
+                'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_new',
                 'productable.categories:id,name,slug'
             ])
             ->whereHas('productable.vinylSec', function ($query) {
