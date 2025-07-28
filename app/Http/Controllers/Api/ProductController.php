@@ -286,9 +286,10 @@ class ProductController extends Controller
         $products = Product::where('productable_type', 'App\\Models\\VinylMaster')
             ->with([
                 'productable.recordLabel:id,name',
-                'productable.artists:id,name',
+                'productable.artists:id,name,slug',
                 'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_new',
-                'productable.categories:id,name,slug'
+                'productable.categories:id,name,slug',
+                'productable.media'
             ])
             ->orderBy('created_at', 'desc')
             ->limit($limit)
@@ -312,9 +313,10 @@ class ProductController extends Controller
         $products = Product::where('productable_type', 'App\\Models\\VinylMaster')
             ->with([
                 'productable.recordLabel:id,name',
-                'productable.artists:id,name',
+                'productable.artists:id,name,slug',
                 'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_new',
-                'productable.categories:id,name,slug'
+                'productable.categories:id,name,slug',
+                'productable.media'
             ])
             ->whereHas('productable.vinylSec', function ($query) {
                 $query->where('is_new', 1);

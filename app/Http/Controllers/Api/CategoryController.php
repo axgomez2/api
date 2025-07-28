@@ -142,9 +142,10 @@ class CategoryController extends Controller
                 })
                 ->with([
                     'productable.recordLabel:id,name',
-                    'productable.artists:id,name',
-                    'productable.vinylSec:id,vinyl_master_id,price,promotional_price,image_url,is_new',
-                    'productable.categories:id,name,slug'
+                    'productable.artists:id,name,slug',
+                    'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_new',
+                    'productable.categories:id,name,slug',
+                    'productable.media'
                 ])
                 ->orderBy('created_at', 'desc')
                 ->limit($limit)
