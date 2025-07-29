@@ -392,4 +392,72 @@ class ShippingController extends Controller
             return null;
         }
     }
+
+    /**
+     * Calcular tarifas de frete (método principal para o frontend)
+     */
+    public function rates(Request $request)
+    {
+        try {
+            $request->validate([
+                'from.postal_code' => 'required|string',
+                'to.postal_code' => 'required|string', 
+                'volumes' => 'required|array',
+                'volumes.*.height' => 'required|numeric|min:0.1',
+                'volumes.*.width' => 'required|numeric|min:0.1', 
+                'volumes.*.length' => 'required|numeric|min:0.1',
+                'volumes.*.weight' => 'required|numeric|min:0.1'
+            ]);
+
+            Log::info('📦 [rates] Calculando frete', [
+                'from' => $request->input('from'),
+                'to' => $request->input('to'),
+                'volumes' => $request->input('volumes')
+            ]);
+
+            // Preparar dados para Melhor Envio
+            $payload = [
+                'from' => $request->input('from'),
+                'to' => $request->input('to'),
+                'volumes' => $request->input('volumes'),
+                'services' => '1,2,3,4,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50'
+            ];
+
+            // Fazer requisição para Melhor Envio
+            $response = $this->me->calculateShipping($payload);
+
+            Log::info('✅ [rates] Frete calculado com sucesso', [
+                'options_count' => count($response)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $response,
+                'message' => 'Frete calculado com sucesso'
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::warning('⚠️ [rates] Dados inválidos', [
+                'errors' => $e->errors()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Dados inválidos',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            Log::error('❌ [rates] Erro ao calcular frete', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro interno ao calcular frete',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
