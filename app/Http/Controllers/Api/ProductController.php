@@ -290,6 +290,7 @@ class ProductController extends Controller
                 'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_new,stock,in_stock',
                 'productable.categories:id,name,slug',
                 'productable.media',
+                'productable.tracks:id,vinyl_master_id,title,duration,youtube_url',
                 'productable:id,title,slug,cover_image,release_year,country'
             ])
             ->orderBy('created_at', 'desc')
@@ -318,6 +319,7 @@ class ProductController extends Controller
                 'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_new,stock,in_stock',
                 'productable.categories:id,name,slug',
                 'productable.media',
+                'productable.tracks:id,vinyl_master_id,title,duration,youtube_url',
                 'productable:id,title,slug,cover_image,release_year,country'
             ])
             ->whereHas('productable.vinylSec', function ($query) {
