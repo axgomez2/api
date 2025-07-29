@@ -39,16 +39,46 @@ class MelhorEnvioService
     {
         $token = $this->getToken();
 
-        $res = Http::baseUrl($this->baseUri)
-            ->withToken($token)
+        // Debug logs
+        Log::info('🚚 [MelhorEnvio] Calculando frete', [
+            'base_uri' => $this->baseUri,
+            'token_preview' => substr($token, 0, 20) . '...',
+            'payload' => $payload
+        ]);
+
+        $fullUrl = $this->baseUri . '/api/v2/me/shipment/calculate';
+        
+        Log::info('🔗 [MelhorEnvio] URL completa', [
+            'full_url' => $fullUrl
+        ]);
+
+        $res = Http::withToken($token)
             ->withHeaders([
                 'Accept'       => 'application/json',
                 'Content-Type' => 'application/json',
             ])
-            ->post('/api/v2/me/shipment/calculate', $payload);
+            ->post($fullUrl, $payload);
 
-        if (! $res->ok() || ! is_array($res->json())) {
-            throw new \RuntimeException("Erro Melhor Env. [{$res->status()}]: ".$res->body());
+        Log::info('✅ [MelhorEnvio] Resposta recebida', [
+            'status' => $res->status(),
+            'success' => $res->ok(),
+            'response_preview' => substr($res->body(), 0, 200) . '...'
+        ]);
+
+        if (! $res->ok()) {
+            Log::error('❌ [MelhorEnvio] Erro na resposta', [
+                'status' => $res->status(),
+                'body' => $res->body()
+            ]);
+            throw new \RuntimeException("Erro Melhor Envio [{$res->status()}]: ".$res->body());
+        }
+        
+        if (! is_array($res->json())) {
+            Log::error('❌ [MelhorEnvio] Resposta não é array', [
+                'response_type' => gettype($res->json()),
+                'response' => $res->json()
+            ]);
+            throw new \RuntimeException("Resposta inválida do Melhor Envio: " . $res->body());
         }
 
         return $res->json();
