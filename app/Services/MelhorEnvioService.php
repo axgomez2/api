@@ -12,6 +12,19 @@ class MelhorEnvioService
     public function __construct()
     {
         $this->baseUri = rtrim(config('services.melhor_envio.base_uri'), '/');
+        
+        // Fallback se a configuração estiver vazia
+        if (empty($this->baseUri)) {
+            $this->baseUri = 'https://melhorenvio.com.br';
+            Log::warning('⚠️ [MelhorEnvio] Base URI vazia, usando fallback', [
+                'fallback_uri' => $this->baseUri
+            ]);
+        }
+        
+        Log::info('🔧 [MelhorEnvio] Construtor', [
+            'base_uri_config' => config('services.melhor_envio.base_uri'),
+            'base_uri_final' => $this->baseUri
+        ]);
     }
 
     protected function getToken(): string
