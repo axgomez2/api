@@ -189,7 +189,7 @@ Route::get('/success', function (Request $request) {
 
     if (!empty($mpParams)) {
         $separator = strpos($redirectUrl, '?') !== false ? '&' : '?';
-        $redirectUrl .= $separator . http_build_query($mpParams);
+        $redirectUrl .= $separator . http_build_query($mpParams); 
     }
 
     return redirect($redirectUrl);
@@ -458,10 +458,62 @@ Route::get('/test-card-payment', function () {
     }
 });
 
-// Route::middleware(['auth:sanctum', 'verified'])->group(function () {
-//     // Rotas para análise de mercado
-//     Route::get('/market-analysis-chart-data', [MarketAnalysisController::class, 'getChartData']);
-//     Route::resource('market-analysis', MarketAnalysisController::class)->except(['create', 'edit']);
-// });
+// 🔐 ROTAS AUTENTICADAS
+Route::middleware(['auth:sanctum'])->group(function () {
+    // Rotas de Pedidos
+    Route::prefix('orders')->group(function () {
+        Route::get('/', [OrderController::class, 'index']);
+        Route::get('/{id}', [OrderController::class, 'show']);
+        Route::post('/', [OrderController::class, 'store']);
+        Route::post('/whatsapp', [OrderController::class, 'createWhatsAppOrder']);
+        Route::put('/{id}/cancel', [OrderController::class, 'cancel']);
+        Route::get('/{id}/tracking', [OrderController::class, 'tracking']);
+        Route::post('/{id}/retry-payment', [OrderController::class, 'retryPayment']);
+    });
 
-// Route::get('/status', [StatusController::class, 'index']);
+    // Rotas de Carrinho
+    Route::prefix('cart')->group(function () {
+        Route::get('/', [CartController::class, 'index']);
+        Route::post('/add', [CartController::class, 'add']);
+        Route::put('/update/{id}', [CartController::class, 'update']);
+        Route::delete('/remove/{id}', [CartController::class, 'remove']);
+        Route::delete('/clear', [CartController::class, 'clear']);
+    });
+
+    // Rotas de Wishlist
+    Route::prefix('wishlist')->group(function () {
+        Route::get('/', [WishlistController::class, 'index']);
+        Route::post('/add', [WishlistController::class, 'add']);
+        Route::delete('/remove/{id}', [WishlistController::class, 'remove']);
+        Route::delete('/clear', [WishlistController::class, 'clear']);
+    });
+
+    // Rotas de Wantlist
+    Route::prefix('wantlist')->group(function () {
+        Route::get('/', [WantlistController::class, 'index']);
+        Route::post('/add', [WantlistController::class, 'add']);
+        Route::delete('/remove/{id}', [WantlistController::class, 'remove']);
+        Route::delete('/clear', [WantlistController::class, 'clear']);
+    });
+
+    // Rotas de Endereços
+    Route::prefix('addresses')->group(function () {
+        Route::get('/', [AddressController::class, 'index']);
+        Route::post('/', [AddressController::class, 'store']);
+        Route::put('/{id}', [AddressController::class, 'update']);
+        Route::delete('/{id}', [AddressController::class, 'destroy']);
+        Route::put('/{id}/set-default', [AddressController::class, 'setDefault']);
+    });
+
+    // Rotas de Frete
+    Route::prefix('shipping')->group(function () {
+        Route::post('/calculate', [ShippingController::class, 'calculate']);
+        Route::post('/quotes', [ShippingController::class, 'getQuotes']);
+    });
+
+    // Rotas de Pagamento
+    Route::prefix('payment')->group(function () {
+        Route::post('/create-preference', [PaymentController::class, 'createPreference']);
+        Route::post('/process', [PaymentController::class, 'processPayment']);
+    });
+});

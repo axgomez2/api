@@ -21,10 +21,7 @@ class MelhorEnvioService
             ]);
         }
         
-        Log::info('🔧 [MelhorEnvio] Construtor', [
-            'base_uri_config' => config('services.melhor_envio.base_uri'),
-            'base_uri_final' => $this->baseUri
-        ]);
+        // Log removido para reduzir ruído
     }
 
     protected function getToken(): string
@@ -52,17 +49,12 @@ class MelhorEnvioService
     {
         $token = $this->getToken();
 
-        // Debug logs
-        Log::info('🚚 [MelhorEnvio] Calculando frete', [
-            'base_uri' => $this->baseUri,
-            'token_preview' => substr($token, 0, 20) . '...',
-            'payload' => $payload
-        ]);
-
         $fullUrl = $this->baseUri . '/api/v2/me/shipment/calculate';
         
-        Log::info('🔗 [MelhorEnvio] URL completa', [
-            'full_url' => $fullUrl
+        Log::info('🚚 [MelhorEnvio] Calculando frete', [
+            'url' => $fullUrl,
+            'from' => $payload['from']['postal_code'] ?? 'N/A',
+            'to' => $payload['to']['postal_code'] ?? 'N/A'
         ]);
 
         $res = Http::withToken($token)

@@ -392,4 +392,184 @@ class OrderController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Cria um pedido pendente para WhatsApp
+     */
+    public function createWhatsAppOrder(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'cart_items' => 'required|array|min:1',
+            'cart_items.*.id' => 'required|integer',
+            'cart_items.*.quantity' => 'required|integer|min:1',
+            'shipping_address' => 'required|array',
+            'shipping_address.street' => 'required|string',
+            'shipping_address.number' => 'required|string',
+            'shipping_address.city' => 'required|string',
+            'shipping_address.state' => 'required|string',
+            'shipping_address.zip_code' => 'required|string',
+            'shipping_method' => 'required|array',
+            'shipping_method.service_name' => 'required|string',
+            'shipping_method.price' => 'required|numeric',
+            'shipping_method.delivery_time' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dados inválidos',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $user = $request->user();
+            $data = $validator->validated();
+
+            DB::beginTransaction();
+
+            // Calcular totais
+            $subtotal = 0;
+            $orderItems = [];
+
+            foreach ($data['cart_items'] as $cartItem) {
+                $product = \App\Models\Product::find($cartItem['id']);
+                if (!$product) {
+                    throw new \Exception("Produto ID {$cartItem['id']} não encontrado");
+                }
+
+                $itemTotal = $product->price * $cartItem['quantity'];
+                $subtotal += $itemTotal;
+
+                $orderItems[] = [
+                    'product_id' => $product->id,
+                    'quantity' => $cartItem['quantity'],
+                    'unit_price' => $product->price,
+                    'total_price' => $itemTotal,
+                    'product_data' => [
+                        'title' => $product->title,
+                        'artist' => $product->artist,
+                        'image_url' => $product->image_url,
+                        'sku' => $product->sku,
+                    ]
+                ];
+            }
+
+            $shippingCost = $data['shipping_method']['price'];
+            $totalAmount = $subtotal + $shippingCost;
+
+            // Gerar número do pedido
+            $orderNumber = 'WA-' . strtoupper(uniqid());
+
+            // Criar pedido
+            $order = Order::create([
+                'user_id' => $user->id,
+                'order_number' => $orderNumber,
+                'status' => 'pending',
+                'payment_status' => 'pending',
+                'payment_method' => 'whatsapp',
+                'subtotal' => $subtotal,
+                'shipping_cost' => $shippingCost,
+                'total_amount' => $totalAmount,
+                'currency' => 'BRL',
+                'shipping_address' => $data['shipping_address'],
+                'shipping_data' => [
+                    'service_name' => $data['shipping_method']['service_name'],
+                    'delivery_time' => $data['shipping_method']['delivery_time'],
+                    'company_name' => 'Correios',
+                ],
+                'notes' => 'Pedido criado via WhatsApp - Aguardando confirmação de pagamento',
+                'created_via' => 'whatsapp',
+            ]);
+
+            // Criar itens do pedido
+            foreach ($orderItems as $itemData) {
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $itemData['product_id'],
+                    'quantity' => $itemData['quantity'],
+                    'unit_price' => $itemData['unit_price'],
+                    'total_price' => $itemData['total_price'],
+                    'product_data' => $itemData['product_data'],
+                ]);
+            }
+
+            // Criar histórico inicial
+            OrderStatusHistory::createHistory(
+                $order->id,
+                null,
+                'pending',
+                'Pedido criado via WhatsApp',
+                ['created_via' => 'whatsapp'],
+                $user->id,
+                'whatsapp'
+            );
+
+            DB::commit();
+
+            // Carregar pedido com relacionamentos
+            $order->load(['items.product', 'statusHistory']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pedido criado com sucesso',
+                'data' => [
+                    'order' => $order,
+                    'whatsapp_data' => [
+                        'phone' => '+5511947159293',
+                        'message' => $this->generateWhatsAppMessage($order, $user),
+                    ]
+                ],
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao criar pedido: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Gera mensagem formatada para WhatsApp
+     */
+    private function generateWhatsAppMessage(Order $order, $user): string
+    {
+        $message = "🎵 *NOVO PEDIDO RDV DISCOS* 🎵\n\n";
+        $message .= "📋 *Pedido:* #{$order->order_number}\n";
+        $message .= "👤 *Cliente:* {$user->name}\n";
+        $message .= "📧 *Email:* {$user->email}\n";
+        $message .= "📱 *Telefone:* " . ($user->phone ?? 'Não informado') . "\n\n";
+
+        $message .= "📦 *PRODUTOS:*\n";
+        foreach ($order->items as $item) {
+            $message .= "• {$item->product_data['title']}\n";
+            $message .= "  Artista: {$item->product_data['artist']}\n";
+            $message .= "  Qtd: {$item->quantity} x R$ " . number_format($item->unit_price, 2, ',', '.') . "\n";
+            $message .= "  Total: R$ " . number_format($item->total_price, 2, ',', '.') . "\n\n";
+        }
+
+        $message .= "💰 *VALORES:*\n";
+        $message .= "Subtotal: R$ " . number_format($order->subtotal, 2, ',', '.') . "\n";
+        $message .= "Frete ({$order->shipping_data['service_name']}): R$ " . number_format($order->shipping_cost, 2, ',', '.') . "\n";
+        $message .= "🔥 *TOTAL: R$ " . number_format($order->total_amount, 2, ',', '.') . "*\n\n";
+
+        $message .= "📍 *ENDEREÇO DE ENTREGA:*\n";
+        $address = $order->shipping_address;
+        $message .= "{$address['street']}, {$address['number']}\n";
+        if (isset($address['complement']) && $address['complement']) {
+            $message .= "{$address['complement']}\n";
+        }
+        $message .= "{$address['city']} - {$address['state']}\n";
+        $message .= "CEP: {$address['zip_code']}\n\n";
+
+        $message .= "🚚 *ENTREGA:* {$order->shipping_data['delivery_time']}\n\n";
+        $message .= "💬 *Olá! Este pedido foi gerado automaticamente.*\n";
+        $message .= "Por favor, confirme os dados e informe as opções de pagamento disponíveis.\n\n";
+        $message .= "Obrigado por escolher a RDV Discos! 🎶";
+
+        return $message;
+    }
 }
