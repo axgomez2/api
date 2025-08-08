@@ -447,19 +447,7 @@ class OrderController extends Controller
                 $productSku = $productable->sku ?? $product->slug;
                 $productImage = $productable->image_url ?? null;
 
-                // Log do produto para debug
-                \Log::info("Product Debug:", [
-                    'product_id' => $product->id,
-                    'product_name' => $productName,
-                    'product_price' => $productPrice,
-                    'artist_name' => $artistName,
-                    'productable_type' => $product->productable_type,
-                    'product_direct_price' => $product->price,
-                    'productable_price' => $productable->price ?? null,
-                    'vinylsec_price' => $vinylSec->price ?? null,
-                    'vinylsec_data' => $vinylSec ? $vinylSec->toArray() : null,
-                    'productable_data' => $productable ? $productable->toArray() : null
-                ]);
+
 
                 // Validar dados essenciais do produto
                 if (!$productPrice || $productPrice <= 0) {
@@ -539,16 +527,8 @@ class OrderController extends Controller
                 ]);
             }
 
-            // Criar histórico inicial
-            OrderStatusHistory::createHistory(
-                $order->id,
-                null,
-                'pending',
-                'Pedido criado via WhatsApp',
-                ['created_via' => 'whatsapp'],
-                $user->id,
-                'whatsapp'
-            );
+            // TODO: Implementar histórico de status quando a classe OrderStatusHistory for criada
+            // OrderStatusHistory::createHistory($order->id, null, 'pending', 'Pedido criado via WhatsApp', ['created_via' => 'whatsapp'], $user->id, 'whatsapp');
 
             DB::commit();
 
