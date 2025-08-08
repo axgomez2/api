@@ -446,12 +446,22 @@ class OrderController extends Controller
                     'quantity' => $cartItem['quantity'],
                     'unit_price' => $product->price,
                     'total_price' => $itemTotal,
-                    'product_data' => [
+                    'product_snapshot' => [
+                        'id' => $product->id,
                         'title' => $product->title,
                         'artist' => $product->artist,
                         'image_url' => $product->image_url,
                         'sku' => $product->sku,
-                    ]
+                        'price' => $product->price,
+                        'description' => $product->description ?? '',
+                        'category' => $product->category ?? '',
+                        'created_at' => $product->created_at,
+                    ],
+                    'product_name' => $product->title,
+                    'product_sku' => $product->sku,
+                    'product_image' => $product->image_url,
+                    'artist_name' => $product->artist,
+                    'album_title' => $product->title,
                 ];
             }
 
@@ -488,7 +498,12 @@ class OrderController extends Controller
                     'quantity' => $itemData['quantity'],
                     'unit_price' => $itemData['unit_price'],
                     'total_price' => $itemData['total_price'],
-                    'product_data' => $itemData['product_data'],
+                    'product_snapshot' => $itemData['product_snapshot'],
+                    'product_name' => $itemData['product_name'],
+                    'product_sku' => $itemData['product_sku'],
+                    'product_image' => $itemData['product_image'],
+                    'artist_name' => $itemData['artist_name'],
+                    'album_title' => $itemData['album_title'],
                 ]);
             }
 
@@ -543,8 +558,8 @@ class OrderController extends Controller
 
         $message .= "📦 *PRODUTOS:*\n";
         foreach ($order->items as $item) {
-            $message .= "• {$item->product_data['title']}\n";
-            $message .= "  Artista: {$item->product_data['artist']}\n";
+            $message .= "• {$item->product_name}\n";
+            $message .= "  Artista: {$item->artist_name}\n";
             $message .= "  Qtd: {$item->quantity} x R$ " . number_format($item->unit_price, 2, ',', '.') . "\n";
             $message .= "  Total: R$ " . number_format($item->total_price, 2, ',', '.') . "\n\n";
         }
