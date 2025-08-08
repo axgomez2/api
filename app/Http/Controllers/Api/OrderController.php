@@ -433,15 +433,16 @@ class OrderController extends Controller
             $orderItems = [];
 
             foreach ($data['cart_items'] as $cartItem) {
-                $product = \App\Models\Product::with('productable')->find($cartItem['id']);
+                $product = \App\Models\Product::with(['productable', 'productable.vinylSec'])->find($cartItem['id']);
                 if (!$product) {
                     throw new \Exception("Produto ID {$cartItem['id']} não encontrado");
                 }
 
                 // Acessar dados do relacionamento polimórfico
                 $productable = $product->productable;
+                $vinylSec = $productable ? $productable->vinylSec : null;
                 $productName = $product->name;
-                $productPrice = $product->price ?? $productable->price ?? 0;
+                $productPrice = $product->price ?? $vinylSec->price ?? $productable->price ?? 0;
                 $artistName = $productable->artist ?? 'Artista não informado';
                 $productSku = $productable->sku ?? $product->slug;
                 $productImage = $productable->image_url ?? null;
@@ -453,6 +454,10 @@ class OrderController extends Controller
                     'product_price' => $productPrice,
                     'artist_name' => $artistName,
                     'productable_type' => $product->productable_type,
+                    'product_direct_price' => $product->price,
+                    'productable_price' => $productable->price ?? null,
+                    'vinylsec_price' => $vinylSec->price ?? null,
+                    'vinylsec_data' => $vinylSec ? $vinylSec->toArray() : null,
                     'productable_data' => $productable ? $productable->toArray() : null
                 ]);
 
