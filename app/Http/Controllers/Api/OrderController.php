@@ -398,6 +398,9 @@ class OrderController extends Controller
      */
     public function createWhatsAppOrder(Request $request): JsonResponse
     {
+        // Log dos dados recebidos para debug
+        \Log::info('WhatsApp Order Request Data:', $request->all());
+
         $validator = Validator::make($request->all(), [
             'cart_items' => 'required|array|min:1',
             'cart_items.*.id' => 'required|integer',
@@ -411,10 +414,15 @@ class OrderController extends Controller
             'shipping_method' => 'required|array',
             'shipping_method.service_name' => 'required|string',
             'shipping_method.price' => 'required|numeric',
-            'shipping_method.delivery_time' => 'required|string',
+            'shipping_method.delivery_time' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
+            \Log::error('WhatsApp Order Validation Failed:', [
+                'errors' => $validator->errors(),
+                'request_data' => $request->all()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Dados inválidos',
