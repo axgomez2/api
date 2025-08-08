@@ -470,8 +470,7 @@ class OrderController extends Controller
                 'payment_method' => 'whatsapp',
                 'subtotal' => $subtotal,
                 'shipping_cost' => $shippingCost,
-                'total_amount' => $totalAmount,
-                'currency' => 'BRL',
+                'total' => $totalAmount,
                 'shipping_address' => $data['shipping_address'],
                 'shipping_data' => [
                     'service_name' => $data['shipping_method']['service_name'],
@@ -479,7 +478,6 @@ class OrderController extends Controller
                     'company_name' => 'Correios',
                 ],
                 'notes' => 'Pedido criado via WhatsApp - Aguardando confirmação de pagamento',
-                'created_via' => 'whatsapp',
             ]);
 
             // Criar itens do pedido
@@ -554,7 +552,7 @@ class OrderController extends Controller
         $message .= "💰 *VALORES:*\n";
         $message .= "Subtotal: R$ " . number_format($order->subtotal, 2, ',', '.') . "\n";
         $message .= "Frete ({$order->shipping_data['service_name']}): R$ " . number_format($order->shipping_cost, 2, ',', '.') . "\n";
-        $message .= "🔥 *TOTAL: R$ " . number_format($order->total_amount, 2, ',', '.') . "*\n\n";
+        $message .= "🔥 *TOTAL: R$ " . number_format($order->total, 2, ',', '.') . "*\n\n";
 
         $message .= "📍 *ENDEREÇO DE ENTREGA:*\n";
         $address = $order->shipping_address;
