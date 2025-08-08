@@ -438,6 +438,26 @@ class OrderController extends Controller
                     throw new \Exception("Produto ID {$cartItem['id']} não encontrado");
                 }
 
+                // Log do produto para debug
+                \Log::info("Product Debug:", [
+                    'id' => $product->id,
+                    'title' => $product->title,
+                    'artist' => $product->artist,
+                    'price' => $product->price,
+                    'sku' => $product->sku,
+                    'image_url' => $product->image_url,
+                    'all_attributes' => $product->toArray()
+                ]);
+
+                // Validar dados essenciais do produto
+                if (!$product->price || $product->price <= 0) {
+                    throw new \Exception("Produto ID {$cartItem['id']} não tem preço válido. Preço atual: " . ($product->price ?? 'null'));
+                }
+                
+                if (!$product->title) {
+                    throw new \Exception("Produto ID {$cartItem['id']} não tem título. Título atual: " . ($product->title ?? 'null'));
+                }
+
                 $itemTotal = $product->price * $cartItem['quantity'];
                 $subtotal += $itemTotal;
 
