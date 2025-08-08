@@ -466,6 +466,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/{id}', [OrderController::class, 'show']);
         Route::post('/', [OrderController::class, 'store']);
         Route::post('/whatsapp', [OrderController::class, 'createWhatsAppOrder']);
+        Route::post('/whatsapp-test', function(Request $request) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Endpoint funcionando',
+                'user' => $request->user()->email ?? 'No user',
+                'data_received' => $request->all(),
+                'timestamp' => now()->toDateTimeString()
+            ]);
+        });
         Route::put('/{id}/cancel', [OrderController::class, 'cancel']);
         Route::get('/{id}/tracking', [OrderController::class, 'tracking']);
         Route::post('/{id}/retry-payment', [OrderController::class, 'retryPayment']);
