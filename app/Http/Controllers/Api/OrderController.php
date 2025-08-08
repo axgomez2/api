@@ -533,7 +533,7 @@ class OrderController extends Controller
             DB::commit();
 
             // Carregar pedido com relacionamentos
-            $order->load(['items.product', 'statusHistory']);
+            $order->load(['items.product']);
 
             return response()->json([
                 'success' => true,
