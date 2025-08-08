@@ -433,55 +433,62 @@ class OrderController extends Controller
             $orderItems = [];
 
             foreach ($data['cart_items'] as $cartItem) {
-                $product = \App\Models\Product::find($cartItem['id']);
+                $product = \App\Models\Product::with('productable')->find($cartItem['id']);
                 if (!$product) {
                     throw new \Exception("Produto ID {$cartItem['id']} não encontrado");
                 }
 
+                // Acessar dados do relacionamento polimórfico
+                $productable = $product->productable;
+                $productName = $product->name;
+                $productPrice = $product->price ?? $productable->price ?? 0;
+                $artistName = $productable->artist ?? 'Artista não informado';
+                $productSku = $productable->sku ?? $product->slug;
+                $productImage = $productable->image_url ?? null;
+
                 // Log do produto para debug
                 \Log::info("Product Debug:", [
-                    'id' => $product->id,
-                    'title' => $product->title,
-                    'artist' => $product->artist,
-                    'price' => $product->price,
-                    'sku' => $product->sku,
-                    'image_url' => $product->image_url,
-                    'all_attributes' => $product->toArray()
+                    'product_id' => $product->id,
+                    'product_name' => $productName,
+                    'product_price' => $productPrice,
+                    'artist_name' => $artistName,
+                    'productable_type' => $product->productable_type,
+                    'productable_data' => $productable ? $productable->toArray() : null
                 ]);
 
                 // Validar dados essenciais do produto
-                if (!$product->price || $product->price <= 0) {
-                    throw new \Exception("Produto ID {$cartItem['id']} não tem preço válido. Preço atual: " . ($product->price ?? 'null'));
+                if (!$productPrice || $productPrice <= 0) {
+                    throw new \Exception("Produto ID {$cartItem['id']} não tem preço válido. Preço atual: " . ($productPrice ?? 'null'));
                 }
                 
-                if (!$product->title) {
-                    throw new \Exception("Produto ID {$cartItem['id']} não tem título. Título atual: " . ($product->title ?? 'null'));
+                if (!$productName) {
+                    throw new \Exception("Produto ID {$cartItem['id']} não tem nome. Nome atual: " . ($productName ?? 'null'));
                 }
 
-                $itemTotal = $product->price * $cartItem['quantity'];
+                $itemTotal = $productPrice * $cartItem['quantity'];
                 $subtotal += $itemTotal;
 
                 $orderItems[] = [
                     'product_id' => $product->id,
                     'quantity' => $cartItem['quantity'],
-                    'unit_price' => $product->price,
+                    'unit_price' => $productPrice,
                     'total_price' => $itemTotal,
                     'product_snapshot' => [
                         'id' => $product->id,
-                        'title' => $product->title,
-                        'artist' => $product->artist,
-                        'image_url' => $product->image_url,
-                        'sku' => $product->sku,
-                        'price' => $product->price,
+                        'name' => $productName,
+                        'artist' => $artistName,
+                        'image_url' => $productImage,
+                        'sku' => $productSku,
+                        'price' => $productPrice,
                         'description' => $product->description ?? '',
-                        'category' => $product->category ?? '',
+                        'product_type' => $product->productable_type ?? '',
                         'created_at' => $product->created_at,
                     ],
-                    'product_name' => $product->title,
-                    'product_sku' => $product->sku,
-                    'product_image' => $product->image_url,
-                    'artist_name' => $product->artist,
-                    'album_title' => $product->title,
+                    'product_name' => $productName,
+                    'product_sku' => $productSku,
+                    'product_image' => $productImage,
+                    'artist_name' => $artistName,
+                    'album_title' => $productName,
                 ];
             }
 
