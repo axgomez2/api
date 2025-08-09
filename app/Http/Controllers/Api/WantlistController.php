@@ -21,9 +21,16 @@ class WantlistController extends Controller
 
             \Log::info('Carregando wantlist para usuário:', ['user_id' => $user->id]);
 
-            // Buscar itens da wantlist do usuário com os produtos relacionados
+            // Buscar itens da wantlist do usuário com TODOS os relacionamentos necessários
             $wishlistItems = Wantlist::where('user_id', $user->id)
-                ->with(['product.productable.artists', 'product.productable.vinylSec'])
+                ->with([
+                    'product.productable.tracks',
+                    'product.productable.artists', 
+                    'product.productable.recordLabel',
+                    'product.productable.vinylSec',
+                    'product.productable.vinylMaster.tracks',
+                    'product.tracks'
+                ])
                 ->get();
 
             // Transformar os dados para o formato esperado pelo frontend
