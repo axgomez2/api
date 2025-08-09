@@ -12,14 +12,39 @@ class ProductResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        // Lógica de preço promocional - seguindo VinylCard.vue
+        $basePrice = $this->price ?? $this->productable?->vinylSec?->price ?? 0;
+        $promotionalPrice = null;
+        $isPromotional = false;
+        
+        if ($this->productable_type === 'App\\Models\\VinylMaster' && $this->productable?->vinylSec) {
+            $vinylSec = $this->productable->vinylSec;
+            if ($vinylSec->is_promotional && $vinylSec->promotional_price) {
+                $promotionalPrice = $vinylSec->promotional_price;
+                $isPromotional = true;
+            }
+        }
+        
+        // Lógica de imagem - usando cover_image do vinylmasters (productable)
+        $imageUrl = null;
+        if ($this->productable && $this->productable->cover_image) {
+            $imageUrl = $this->productable->cover_image;
+        } elseif ($this->productable?->vinylSec?->image_url) {
+            $imageUrl = $this->productable->vinylSec->image_url;
+        } elseif ($this->image_url) {
+            $imageUrl = $this->image_url;
+        }
+        
         return [
             'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug,
             'description' => $this->description,
-            'price' => $this->when($this->productable_type === 'App\\Models\\VinylMaster', 
-                $this->productable?->vinylSec?->price
-            ),
+            'price' => $basePrice,
+            'promotional_price' => $promotionalPrice,
+            'is_promotional' => $isPromotional,
+            'final_price' => $promotionalPrice ?? $basePrice,
+            'image_url' => $imageUrl,
             'stock' => $this->when($this->productable_type === 'App\\Models\\VinylMaster', 
                 $this->productable?->vinylSec?->stock ?? 0
             ),

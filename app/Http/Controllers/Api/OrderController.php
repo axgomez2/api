@@ -442,10 +442,25 @@ class OrderController extends Controller
                 $productable = $product->productable;
                 $vinylSec = $productable ? $productable->vinylSec : null;
                 $productName = $product->name;
+                
+                // Lógica de preço promocional - seguindo VinylCard.vue
                 $productPrice = $product->price ?? $vinylSec->price ?? $productable->price ?? 0;
+                if ($vinylSec && $vinylSec->is_promotional && $vinylSec->promotional_price) {
+                    $productPrice = $vinylSec->promotional_price;
+                }
+                
                 $artistName = $productable->artist ?? 'Artista não informado';
                 $productSku = $productable->sku ?? $product->slug;
-                $productImage = $productable->image_url ?? null;
+                
+                // Lógica de imagem - seguindo VinylCard.vue
+                $productImage = null;
+                if ($productable && $productable->cover_image) {
+                    $productImage = $productable->cover_image;
+                } elseif ($vinylSec && $vinylSec->image_url) {
+                    $productImage = $vinylSec->image_url;
+                } elseif ($productable && $productable->image_url) {
+                    $productImage = $productable->image_url;
+                }
 
 
 
