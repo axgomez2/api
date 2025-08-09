@@ -53,6 +53,14 @@ class ProductResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             
+            // Adicionar artistas diretamente para facilitar acesso
+            'artist_name' => $this->when($this->productable_type === 'App\\Models\\VinylMaster', function() {
+                if ($this->productable && $this->productable->artists) {
+                    return $this->productable->artists->pluck('name')->join(', ');
+                }
+                return null;
+            }),
+            
             // Dados específicos do vinil quando aplicável
             'vinyl_data' => $this->when($this->productable_type === 'App\\Models\\VinylMaster', [
                 'release_year' => $this->productable?->release_year,
