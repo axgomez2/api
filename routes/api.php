@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ArtistController;
 use App\Http\Controllers\Api\RecordLabelController;
+use App\Http\Controllers\Api\PlaylistController;
 use Illuminate\Http\Request;
 // use App\Http\Controllers\Admin\StatusController;
 
@@ -264,6 +265,14 @@ Route::prefix('labels')->group(function () {
     Route::get('/', [RecordLabelController::class, 'index']);
     Route::get('/{slug}', [RecordLabelController::class, 'show']);
     Route::get('/{slug}/products', [RecordLabelController::class, 'productsByLabel']);
+});
+
+// Rotas para Playlists
+Route::prefix('playlists')->group(function () {
+    Route::get('/', [PlaylistController::class, 'index']);
+    Route::get('/latest', [PlaylistController::class, 'latest']);
+    Route::get('/type/{type}', [PlaylistController::class, 'byType']);
+    Route::get('/{id}', [PlaylistController::class, 'show']);
 });
 
 // Routes de debug (apenas em ambiente de desenvolvimento)
