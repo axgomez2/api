@@ -150,6 +150,33 @@ class ProductController extends Controller
                 });
             }
 
+            // Filtro por busca de texto
+            if ($request->has('search')) {
+                $search = $request->input('search');
+                $query->where(function($q) use ($search) {
+                    $q->whereHas('productable', function($subQ) use ($search) {
+                        $subQ->where('title', 'LIKE', "%{$search}%")
+                             ->orWhere('country', 'LIKE', "%{$search}%");
+                    })
+                    ->orWhereHas('productable.artists', function($subQ) use ($search) {
+                        $subQ->where('name', 'LIKE', "%{$search}%");
+                    })
+                    ->orWhereHas('productable.recordLabel', function($subQ) use ($search) {
+                        $subQ->where('name', 'LIKE', "%{$search}%");
+                    })
+                    ->orWhereHas('productable.tracks', function($subQ) use ($search) {
+                        $subQ->where('name', 'LIKE', "%{$search}%");
+                    });
+                });
+            }
+
+            // Filtro por disponibilidade
+            if ($request->has('available_only') && $request->input('available_only') == '1') {
+                $query->whereHas('productable.vinylSec', function($q) {
+                    $q->where('in_stock', true)->where('stock', '>', 0);
+                });
+            }
+
             // Definir ordenação
             $sortField = $request->input('sort_by', 'created_at');
             $sortDirection = $request->input('sort_direction', 'desc');
