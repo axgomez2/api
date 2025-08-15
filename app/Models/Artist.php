@@ -11,11 +11,11 @@ class Artist extends Model
         'name',
         'slug',
         'description',
-        'image'
+        'images'
     ];
 
     protected $casts = [
-        'image' => 'string'
+        'images' => 'array'
     ];
 
     // Relacionamento com VinylMaster através da tabela pivot

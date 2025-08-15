@@ -258,6 +258,7 @@ Route::prefix('artists')->group(function () {
     Route::get('/', [ArtistController::class, 'index']);
     Route::get('/{slug}', [ArtistController::class, 'show']);
     Route::get('/{slug}/products', [ArtistController::class, 'productsByArtist']);
+    Route::get('/{slug}/related', [ArtistController::class, 'relatedArtists']);
 });
 
 // Rotas para Gravadoras (Record Labels)
