@@ -340,6 +340,8 @@ class PaymentController extends Controller
 
             return response()->json([
                 'success' => true,
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
                 'payment_id' => $payment->id,
                 'status' => $payment->status,
                 'status_detail' => $payment->status_detail,
