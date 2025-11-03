@@ -264,7 +264,12 @@ class PaymentController extends Controller
                     'change_type' => 'automatic',
                 ]);
 
-                // 🔥 Inativar o carrinho
+                // 🔥 Arquivar carrinhos antigos completed do usuário antes de marcar novo
+                Cart::where('user_id', $request->user()->id)
+                    ->where('status', 'completed')
+                    ->update(['status' => 'archived']);
+                
+                // Marcar carrinho atual como completed
                 $cart->update(['status' => 'completed']);
 
                 return $order;
