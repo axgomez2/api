@@ -223,19 +223,36 @@ class PaymentController extends Controller
                 // Criar itens do pedido
                 foreach ($cart->items as $item) {
                     $product = $item->product; // Acessa o produto relacionado
-                    $vinylMaster = $product->productable; // Acessa o VinylMaster
-                    $artist = $vinylMaster->artists->first(); // Pega o primeiro artista
+                    
+                    // Dados padrão
+                    $artistName = 'N/A';
+                    $albumTitle = 'N/A';
+                    
+                    // Se o produto tem productable (polimórfico)
+                    if ($product->productable) {
+                        $productable = $product->productable;
+                        
+                        // Se for VinylMaster, pegar dados do vinil
+                        if ($productable instanceof \App\Models\VinylMaster) {
+                            $albumTitle = $productable->title ?? 'N/A';
+                            
+                            // Pegar primeiro artista se existir
+                            if ($productable->artists && $productable->artists->isNotEmpty()) {
+                                $artistName = $productable->artists->first()->name;
+                            }
+                        }
+                    }
 
                     OrderItem::create([
                         'order_id' => $order->id,
                         'product_id' => $product->id,
-                        'product_snapshot' => json_encode($product), // Snapshot completo
-                        'product_name' => $product->name,
+                        'product_snapshot' => json_encode($product->toArray()), // Snapshot completo
+                        'product_name' => $product->name ?? 'Produto',
                         'quantity' => $item->quantity,
                         'unit_price' => $item->price,
                         'total_price' => $item->quantity * $item->price,
-                        'artist_name' => $artist ? $artist->name : 'N/A', // Nome do artista
-                        'album_title' => $vinylMaster->title, // Título do álbum
+                        'artist_name' => $artistName,
+                        'album_title' => $albumTitle,
                     ]);
                 }
 
@@ -356,13 +373,25 @@ class PaymentController extends Controller
         } catch (\Exception $e) {
             Log::error('❌ Erro ao processar pagamento', [
                 'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
-                'user_id' => $request->user()->id ?? null
+                'user_id' => $request->user()->id ?? null,
+                'request_data' => $request->except(['token', 'cvv'])
             ]);
+
+            // Em desenvolvimento, mostrar erro detalhado
+            $errorMessage = config('app.debug') 
+                ? $e->getMessage() . ' (Linha: ' . $e->getLine() . ')' 
+                : 'Erro ao processar pagamento. Tente novamente.';
 
             return response()->json([
                 'success' => false,
-                'message' => 'Erro interno ao processar pagamento'
+                'message' => $errorMessage,
+                'error_details' => config('app.debug') ? [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine()
+                ] : null
             ], 500);
         }
     }
