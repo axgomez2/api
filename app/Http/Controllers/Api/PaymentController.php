@@ -184,6 +184,27 @@ class PaymentController extends Controller
                     return $item->quantity * $item->price;
                 });
 
+                // Validar dados obrigatórios
+                $shippingAddress = $request->input('shipping_address');
+                $shippingCost = $request->input('shipping_cost', 0);
+                $shippingQuoteId = $request->input('shipping_quote_id');
+                $shippingService = $request->input('shipping_service');
+
+                if (!$shippingAddress) {
+                    throw new \Exception("Endereço de entrega não fornecido.");
+                }
+
+                if (!$shippingService) {
+                    throw new \Exception("Serviço de frete não selecionado.");
+                }
+
+                Log::info('📦 Dados de frete recebidos:', [
+                    'shipping_cost' => $shippingCost,
+                    'shipping_quote_id' => $shippingQuoteId,
+                    'shipping_service' => $shippingService,
+                    'shipping_address' => $shippingAddress
+                ]);
+
                 // Criar pedido
                 $order = Order::create([
                     'order_number' => 'ORD-' . now()->format('Ymd') . '-' . Str::upper(Str::random(6)),
@@ -191,11 +212,12 @@ class PaymentController extends Controller
                     'status' => 'pending',
                     'payment_status' => 'pending',
                     'subtotal' => $subtotal,
-                    'shipping_cost' => $request->input('shipping_cost', 0),
+                    'shipping_cost' => $shippingCost,
                     'total' => $request->input('transaction_amount'),
-                    'shipping_address' => json_encode($request->input('shipping_address')),
+                    'shipping_address' => $shippingAddress, // Laravel converte automaticamente para JSON
+                    'shipping_data' => $shippingService, // Armazena dados do serviço de frete
                     'payment_method' => $paymentMethodId,
-                    'shipping_quote_id' => $request->input('shipping_quote_id'),
+                    'shipping_quote_id' => $shippingQuoteId,
                 ]);
 
                 // Criar itens do pedido

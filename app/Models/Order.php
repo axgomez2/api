@@ -29,7 +29,7 @@ class Order extends Model
         'billing_address',
         'shipping_quote_id',
         'tracking_code',
-        'shipping_data',
+        'shipping_data', // Dados completos do frete (inclui serviço, prazo, etc)
         'notes',
         'customer_notes',
         'shipped_at',
