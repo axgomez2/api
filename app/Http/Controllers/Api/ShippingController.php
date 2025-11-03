@@ -305,29 +305,62 @@ class ShippingController extends Controller
 
                 // Calcular valor total para seguro
                 $vinylSec = $product->productable?->vinylSec ?? $product->productable?->vinyl_sec;
+                
+                if (!$vinylSec) {
+                    Log::warning('Produto sem vinylSec, usando valores padrão', [
+                        'product_id' => $product->id,
+                        'product_name' => $product->name
+                    ]);
+                }
+                
                 $price = $vinylSec->promotional_price ?? $vinylSec->price ?? $product->price ?? 0;
                 $totalValue += $price * $quantity;
 
                 // Peso do produto
                 $weight = 0.3; // Peso padrão de 300g por vinil
                 if ($vinylSec && isset($vinylSec->weight)) {
-                    $weight = $vinylSec->weight; // Assumindo que está em kg
+                    // Weight pode ser um objeto ou um valor numérico
+                    if (is_object($vinylSec->weight) && isset($vinylSec->weight->value)) {
+                        // Se for objeto Weight com propriedade value
+                        $weight = $vinylSec->weight->value;
+                        // Converter para kg se estiver em gramas
+                        if (isset($vinylSec->weight->unit) && $vinylSec->weight->unit === 'g') {
+                            $weight = $weight / 1000;
+                        }
+                    } elseif (is_numeric($vinylSec->weight)) {
+                        // Se for valor numérico direto
+                        $weight = floatval($vinylSec->weight);
+                    }
                 }
                 $totalWeight += $weight * $quantity;
 
                 // Dimensões
                 // Altura se acumula (vários discos empilhados)
                 $height = 0.5; // 5mm por disco (padrão)
-                if ($vinylSec && isset($vinylSec->height)) {
-                    $height = $vinylSec->height / 100; // Converter mm para cm se necessário
+                if ($vinylSec) {
+                    // Verificar se dimension é um objeto ou valores diretos
+                    if (isset($vinylSec->dimension) && is_object($vinylSec->dimension)) {
+                        // Se dimension é um objeto
+                        $height = isset($vinylSec->dimension->height) ? floatval($vinylSec->dimension->height) / 100 : 0.5;
+                        $width = isset($vinylSec->dimension->width) ? floatval($vinylSec->dimension->width) : 31;
+                        $length = isset($vinylSec->dimension->length) ? floatval($vinylSec->dimension->length) : 31;
+                        
+                        $maxWidth = max($maxWidth, $width);
+                        $maxLength = max($maxLength, $length);
+                    } else {
+                        // Valores diretos nas propriedades
+                        if (isset($vinylSec->height)) {
+                            $height = floatval($vinylSec->height) / 100; // Converter mm para cm
+                        }
+                        if (isset($vinylSec->width)) {
+                            $maxWidth = max($maxWidth, floatval($vinylSec->width));
+                        }
+                        if (isset($vinylSec->length)) {
+                            $maxLength = max($maxLength, floatval($vinylSec->length));
+                        }
+                    }
                 }
                 $totalHeight += $height * $quantity;
-
-                // Largura e comprimento pegam o maior valor
-                if ($vinylSec) {
-                    $maxWidth = max($maxWidth, $vinylSec->width ?? 31);
-                    $maxLength = max($maxLength, $vinylSec->length ?? 31);
-                }
             }
 
             // Garantir valores mínimos
