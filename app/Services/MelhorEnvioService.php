@@ -109,6 +109,9 @@ class MelhorEnvioService
      * - Jadlog .COM - ID 4
      * - Azul Cargo Express - ID 17
      * - JET - ID 10
+     * 
+     * Transportadoras bloqueadas:
+     * - Loggi - ID 12
      */
     private function filterShippingOptions(array $options): array
     {
@@ -120,11 +123,28 @@ class MelhorEnvioService
             10 => ['JET', 'JET'],                  // JET
             17 => ['Azul', 'Cargo', 'Express'],    // Azul Cargo Express
         ];
+        
+        // IDs e nomes de transportadoras bloqueadas
+        $blockedServices = [12, 'Loggi', 'LOGGI'];
 
-        $filtered = array_filter($options, function($option) use ($allowedServices) {
+        $filtered = array_filter($options, function($option) use ($allowedServices, $blockedServices) {
             $serviceId = $option['id'] ?? null;
             $serviceName = strtoupper($option['name'] ?? '');
             $companyName = strtoupper($option['company']['name'] ?? '');
+            
+            // Verificar se é um serviço bloqueado (prioridade)
+            if (in_array($serviceId, $blockedServices)) {
+                return false; // Bloquear por ID
+            }
+            
+            foreach ($blockedServices as $blocked) {
+                if (is_string($blocked)) {
+                    if (stripos($serviceName, $blocked) !== false || 
+                        stripos($companyName, $blocked) !== false) {
+                        return false; // Bloquear por nome
+                    }
+                }
+            }
             
             // Verificar por ID do serviço
             if (array_key_exists($serviceId, $allowedServices)) {

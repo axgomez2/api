@@ -104,6 +104,32 @@ class ShippingController extends Controller
         try {
             $result = $this->me->calculateShipping($requestData);
 
+            // Aplicar margem de segurança aos preços
+            $safetyMargin = $requestData['safety_margin'] ?? 0;
+            if ($safetyMargin > 0) {
+                foreach ($result as &$option) {
+                    $originalPrice = floatval($option['price'] ?? 0);
+                    $option['price'] = number_format($originalPrice + $safetyMargin, 2, '.', '');
+                    $option['custom_price'] = $option['price'];
+                    
+                    // Atualizar também nos packages se existir
+                    if (isset($option['packages']) && is_array($option['packages'])) {
+                        foreach ($option['packages'] as &$package) {
+                            if (isset($package['price'])) {
+                                $packagePrice = floatval($package['price']);
+                                $package['price'] = number_format($packagePrice + $safetyMargin, 2, '.', '');
+                            }
+                        }
+                    }
+                }
+                unset($option, $package);
+                
+                Log::info('✅ Margem de segurança aplicada aos preços', [
+                    'safety_margin' => $safetyMargin,
+                    'options_count' => count($result)
+                ]);
+            }
+
             // Salvar cotação no banco de dados e obter o ID
             $quoteId = $this->saveShippingQuote($user, $requestData, $result);
 
@@ -377,13 +403,25 @@ class ShippingController extends Controller
                 'insurance_value' => round($totalValue, 2) // VALOR PARA SEGURO
             ];
 
+            // Calcular margem de segurança no frete
+            // R$ 5,00 fixo + R$ 2,50 por item adicional
+            $itemsCount = $cart->items->sum('quantity');
+            $safetyMargin = 5.00; // Primeiro item
+            if ($itemsCount > 1) {
+                $safetyMargin += ($itemsCount - 1) * 2.50; // Itens adicionais
+            }
+            
+            // Armazenar margem de segurança para uso posterior
+            $requestData['safety_margin'] = $safetyMargin;
+
             Log::info('📦 Volumes preparados com dados do carrinho', [
                 'user_id' => $user->id,
                 'cart_id' => $cart->id,
-                'items_count' => $cart->items->count(),
+                'items_count' => $itemsCount,
                 'total_value' => $totalValue,
                 'total_weight' => $totalWeight,
                 'dimensions' => "{$maxWidth}x{$maxLength}x{$totalHeight}cm",
+                'safety_margin' => $safetyMargin,
                 'volumes' => $requestData['volumes']
             ]);
 
