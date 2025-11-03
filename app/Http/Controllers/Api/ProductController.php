@@ -332,12 +332,12 @@ class ProductController extends Controller
     }
 
     /**
-     * Retorna discos marcados como novos (is_new = 1) limitado a 10 itens
+     * Retorna discos marcados como novos (is_new = 1)
      *
-     * @param int $limit Quantidade máxima de discos a retornar (padrão: 10)
+     * @param int $limit Quantidade máxima de discos a retornar (padrão: 20)
      * @return \Illuminate\Http\JsonResponse
      */
-    public function newArrivals($limit = 10)
+    public function newArrivals($limit = 20)
     {
         $products = Product::where('productable_type', 'App\\Models\\VinylMaster')
             ->with([
@@ -360,6 +360,38 @@ class ProductController extends Controller
             'status' => 'success',
             'data' => $products,
             'message' => "Retornando {$products->count()} novos lançamentos"
+        ]);
+    }
+
+    /**
+     * Retorna discos em pré-venda (is_presale = 1)
+     *
+     * @param int $limit Quantidade máxima de discos a retornar (padrão: 20)
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function presaleVinyls($limit = 20)
+    {
+        $products = Product::where('productable_type', 'App\\Models\\VinylMaster')
+            ->with([
+                'productable.recordLabel:id,name',
+                'productable.artists:id,name,slug',
+                'productable.vinylSec:id,vinyl_master_id,price,promotional_price,is_presale,presale_arrival_date,stock,in_stock',
+                'productable.categories:id,name,slug',
+                'productable.media',
+                'productable.tracks:id,vinyl_master_id,name,position,duration,youtube_url',
+                'productable:id,title,slug,cover_image,release_year,country'
+            ])
+            ->whereHas('productable.vinylSec', function ($query) {
+                $query->where('is_presale', 1);
+            })
+            ->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $products,
+            'message' => "Retornando {$products->count()} discos em pré-venda"
         ]);
     }
 }

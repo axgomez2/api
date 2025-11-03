@@ -233,6 +233,7 @@ Route::prefix('products')->group(function () {
     Route::get('/vinyl/latest/{limit?}', [ProductController::class, 'latestVinyls']);
     Route::get('/vinyl/newest/{limit?}', [ProductController::class, 'newestVinyls']); // Últimos cadastrados
     Route::get('/vinyl/new-arrivals/{limit?}', [ProductController::class, 'newArrivals']); // is_new = 1
+    Route::get('/vinyl/presale/{limit?}', [ProductController::class, 'presaleVinyls']); // is_presale = 1
     Route::get('/vinyl/{slug}', [ProductController::class, 'vinylDetail']);
     Route::get('/{slug}', [ProductController::class, 'show']);
 });
