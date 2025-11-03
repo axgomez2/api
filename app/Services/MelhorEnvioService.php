@@ -86,7 +86,71 @@ class MelhorEnvioService
             throw new \RuntimeException("Resposta inválida do Melhor Envio: " . $res->body());
         }
 
-        return $res->json();
+        $allOptions = $res->json();
+        
+        // Filtrar apenas as transportadoras desejadas
+        $filteredOptions = $this->filterShippingOptions($allOptions);
+        
+        Log::info('🔍 [MelhorEnvio] Opções filtradas', [
+            'total_options' => count($allOptions),
+            'filtered_options' => count($filteredOptions),
+            'companies' => array_column($filteredOptions, 'name')
+        ]);
+
+        return $filteredOptions;
+    }
+
+    /**
+     * Filtrar opções de frete para exibir apenas transportadoras selecionadas
+     * 
+     * Transportadoras permitidas:
+     * - PAC (Correios) - ID 1
+     * - SEDEX (Correios) - ID 2
+     * - Jadlog .COM - ID 4
+     * - Azul Cargo Express - ID 17
+     * - JET - ID 10
+     */
+    private function filterShippingOptions(array $options): array
+    {
+        // IDs das transportadoras e serviços permitidos
+        $allowedServices = [
+            1 => ['PAC', 'Correios'],              // PAC
+            2 => ['SEDEX', 'Correios'],            // SEDEX
+            4 => ['Jadlog', '.COM'],               // Jadlog .COM
+            10 => ['JET', 'JET'],                  // JET
+            17 => ['Azul', 'Cargo', 'Express'],    // Azul Cargo Express
+        ];
+
+        $filtered = array_filter($options, function($option) use ($allowedServices) {
+            $serviceId = $option['id'] ?? null;
+            $serviceName = strtoupper($option['name'] ?? '');
+            $companyName = strtoupper($option['company']['name'] ?? '');
+            
+            // Verificar por ID do serviço
+            if (array_key_exists($serviceId, $allowedServices)) {
+                return true;
+            }
+            
+            // Verificar por nome do serviço
+            foreach ($allowedServices as $keywords) {
+                $matchesService = false;
+                foreach ($keywords as $keyword) {
+                    if (stripos($serviceName, $keyword) !== false || 
+                        stripos($companyName, $keyword) !== false) {
+                        $matchesService = true;
+                        break;
+                    }
+                }
+                if ($matchesService) {
+                    return true;
+                }
+            }
+            
+            return false;
+        });
+
+        // Reindexar array
+        return array_values($filtered);
     }
 
 

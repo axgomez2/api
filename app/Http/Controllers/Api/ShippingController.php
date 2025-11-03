@@ -98,6 +98,9 @@ class ShippingController extends Controller
             'volumes' => 'required|array|min:1',
         ]);
 
+        // Preparar volumes com dados completos do carrinho
+        $requestData = $this->prepareShippingDataWithCart($user, $requestData);
+
         try {
             $result = $this->me->calculateShipping($requestData);
 
@@ -131,34 +134,14 @@ class ShippingController extends Controller
                                 'name' => 'Correios',
                                 'picture' => 'https://www.melhorenvio.com.br/images/shipping-companies/correios.png'
                             ],
-                            'price' => '15.90',
-                            'custom_price' => '15.90',
+                            'price' => '18.90',
+                            'custom_price' => '18.90',
                             'discount' => '0.00',
                             'currency' => 'R$',
                             'delivery_time' => 8,
                             'delivery_range' => [
                                 'min' => 6,
                                 'max' => 10
-                            ],
-                            'custom_delivery_time' => 8,
-                            'custom_delivery_range' => [
-                                'min' => 6,
-                                'max' => 10
-                            ],
-                            'packages' => [
-                                [
-                                    'price' => '15.90',
-                                    'discount' => '0.00',
-                                    'format' => 'box',
-                                    'weight' => '1.20',
-                                    'insurance_value' => '0.00',
-                                    'products' => [
-                                        [
-                                            'id' => 'vinyl_001',
-                                            'quantity' => 1
-                                        ]
-                                    ]
-                                ]
                             ]
                         ],
                         [
@@ -169,34 +152,68 @@ class ShippingController extends Controller
                                 'name' => 'Correios',
                                 'picture' => 'https://www.melhorenvio.com.br/images/shipping-companies/correios.png'
                             ],
-                            'price' => '25.50',
-                            'custom_price' => '25.50',
+                            'price' => '28.50',
+                            'custom_price' => '28.50',
                             'discount' => '0.00',
                             'currency' => 'R$',
                             'delivery_time' => 3,
                             'delivery_range' => [
                                 'min' => 2,
                                 'max' => 4
+                            ]
+                        ],
+                        [
+                            'id' => 4,
+                            'name' => 'Jadlog .COM',
+                            'company' => [
+                                'id' => 4,
+                                'name' => 'Jadlog',
+                                'picture' => 'https://www.melhorenvio.com.br/images/shipping-companies/jadlog.png'
                             ],
-                            'custom_delivery_time' => 3,
-                            'custom_delivery_range' => [
-                                'min' => 2,
-                                'max' => 4
+                            'price' => '22.80',
+                            'custom_price' => '22.80',
+                            'discount' => '0.00',
+                            'currency' => 'R$',
+                            'delivery_time' => 5,
+                            'delivery_range' => [
+                                'min' => 4,
+                                'max' => 6
+                            ]
+                        ],
+                        [
+                            'id' => 10,
+                            'name' => 'JET',
+                            'company' => [
+                                'id' => 10,
+                                'name' => 'JET',
+                                'picture' => 'https://www.melhorenvio.com.br/images/shipping-companies/jet.png'
                             ],
-                            'packages' => [
-                                [
-                                    'price' => '25.50',
-                                    'discount' => '0.00',
-                                    'format' => 'box',
-                                    'weight' => '1.20',
-                                    'insurance_value' => '0.00',
-                                    'products' => [
-                                        [
-                                            'id' => 'vinyl_001',
-                                            'quantity' => 1
-                                        ]
-                                    ]
-                                ]
+                            'price' => '26.90',
+                            'custom_price' => '26.90',
+                            'discount' => '0.00',
+                            'currency' => 'R$',
+                            'delivery_time' => 4,
+                            'delivery_range' => [
+                                'min' => 3,
+                                'max' => 5
+                            ]
+                        ],
+                        [
+                            'id' => 17,
+                            'name' => 'Azul Cargo Express',
+                            'company' => [
+                                'id' => 17,
+                                'name' => 'Azul Cargo',
+                                'picture' => 'https://www.melhorenvio.com.br/images/shipping-companies/azul-cargo.png'
+                            ],
+                            'price' => '32.50',
+                            'custom_price' => '32.50',
+                            'discount' => '0.00',
+                            'currency' => 'R$',
+                            'delivery_time' => 2,
+                            'delivery_range' => [
+                                'min' => 1,
+                                'max' => 3
                             ]
                         ]
                     ],
@@ -259,6 +276,93 @@ class ShippingController extends Controller
                 'message' => $envToken ? 'Token configurado no .env - Pronto para usar!' : 'Configure MELHORENVIO_BEARER_TOKEN no .env'
             ]
         ]);
+    }
+
+    /**
+     * Preparar dados de frete com informações do carrinho
+     */
+    private function prepareShippingDataWithCart($user, $requestData)
+    {
+        try {
+            // Buscar carrinho ativo do usuário
+            $cart = Cart::getActiveForUser($user->id);
+            
+            if (!$cart || $cart->items->isEmpty()) {
+                Log::warning('Carrinho vazio ou não encontrado', ['user_id' => $user->id]);
+                return $requestData; // Retorna dados originais
+            }
+
+            $totalValue = 0;
+            $totalWeight = 0;
+            $totalHeight = 0;
+            $maxWidth = 31; // Largura padrão de vinil LP (cm)
+            $maxLength = 31; // Comprimento padrão de vinil LP (cm)
+
+            // Processar cada item do carrinho
+            foreach ($cart->items as $cartItem) {
+                $product = $cartItem->product;
+                $quantity = $cartItem->quantity;
+
+                // Calcular valor total para seguro
+                $vinylSec = $product->productable?->vinylSec ?? $product->productable?->vinyl_sec;
+                $price = $vinylSec->promotional_price ?? $vinylSec->price ?? $product->price ?? 0;
+                $totalValue += $price * $quantity;
+
+                // Peso do produto
+                $weight = 0.3; // Peso padrão de 300g por vinil
+                if ($vinylSec && isset($vinylSec->weight)) {
+                    $weight = $vinylSec->weight; // Assumindo que está em kg
+                }
+                $totalWeight += $weight * $quantity;
+
+                // Dimensões
+                // Altura se acumula (vários discos empilhados)
+                $height = 0.5; // 5mm por disco (padrão)
+                if ($vinylSec && isset($vinylSec->height)) {
+                    $height = $vinylSec->height / 100; // Converter mm para cm se necessário
+                }
+                $totalHeight += $height * $quantity;
+
+                // Largura e comprimento pegam o maior valor
+                if ($vinylSec) {
+                    $maxWidth = max($maxWidth, $vinylSec->width ?? 31);
+                    $maxLength = max($maxLength, $vinylSec->length ?? 31);
+                }
+            }
+
+            // Garantir valores mínimos
+            $totalWeight = max(0.1, $totalWeight); // Mínimo 100g
+            $totalHeight = max(1, ceil($totalHeight)); // Mínimo 1cm
+            $totalValue = max(10, $totalValue); // Mínimo R$ 10 para seguro
+
+            // Atualizar volumes com dados reais
+            $requestData['volumes'][0] = [
+                'height' => (int) $totalHeight,
+                'width' => (int) $maxWidth,
+                'length' => (int) $maxLength,
+                'weight' => round($totalWeight, 2),
+                'insurance_value' => round($totalValue, 2) // VALOR PARA SEGURO
+            ];
+
+            Log::info('📦 Volumes preparados com dados do carrinho', [
+                'user_id' => $user->id,
+                'cart_id' => $cart->id,
+                'items_count' => $cart->items->count(),
+                'total_value' => $totalValue,
+                'total_weight' => $totalWeight,
+                'dimensions' => "{$maxWidth}x{$maxLength}x{$totalHeight}cm",
+                'volumes' => $requestData['volumes']
+            ]);
+
+            return $requestData;
+
+        } catch (\Exception $e) {
+            Log::error('Erro ao preparar dados de frete:', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
+            ]);
+            return $requestData; // Retorna dados originais em caso de erro
+        }
     }
 
     /**
