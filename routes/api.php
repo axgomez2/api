@@ -114,7 +114,7 @@ Route::middleware('client.auth')->group(function () {
     Route::post('/client/logout', [ClientAuthController::class, 'logout']);
 
     // Cart routes
-    Route::prefix('cart')->group(function () {
+    Route::prefix('client/cart')->group(function () {
         Route::get('/', [CartController::class, 'index']);
         Route::post('/', [CartController::class, 'store']);
         Route::put('/{productId}', [CartController::class, 'update']);
@@ -489,14 +489,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/{id}/retry-payment', [OrderController::class, 'retryPayment']);
     });
 
-    // Rotas de Carrinho
-    Route::prefix('cart')->group(function () {
-        Route::get('/', [CartController::class, 'index']);
-        Route::post('/add', [CartController::class, 'add']);
-        Route::put('/update/{id}', [CartController::class, 'update']);
-        Route::delete('/remove/{id}', [CartController::class, 'remove']);
-        Route::delete('/clear', [CartController::class, 'clear']);
-    });
+    // Rotas de Carrinho - REMOVIDAS (usar rotas client/cart no middleware client.auth)
+    // Route::prefix('cart')->group(function () {
+    //     Route::get('/', [CartController::class, 'index']);
+    //     Route::post('/add', [CartController::class, 'add']);
+    //     Route::put('/update/{id}', [CartController::class, 'update']);
+    //     Route::delete('/remove/{id}', [CartController::class, 'remove']);
+    //     Route::delete('/clear', [CartController::class, 'clear']);
+    // });
 
     // Rotas de Wishlist
     Route::prefix('wishlist')->group(function () {
