@@ -70,9 +70,26 @@ class Cart extends Model
     ]);
     }
 
+    /**
+     * Remove um item do carrinho
+     * Se o carrinho ficar vazio, será excluído automaticamente pelo Observer
+     * 
+     * @param int $productId
+     * @return bool
+     */
     public function removeItem(int $productId): bool
     {
-        return $this->items()->where('product_id', $productId)->delete() > 0;
+        $deleted = $this->items()->where('product_id', $productId)->delete() > 0;
+        
+        if ($deleted) {
+            // Recarregar relacionamento para refletir mudança
+            $this->load('items');
+            
+            // Observer irá verificar e excluir se vazio
+            $this->touch(); // Dispara evento 'updated'
+        }
+        
+        return $deleted;
     }
 
     public function hasItem(int $productId): bool
@@ -80,9 +97,62 @@ class Cart extends Model
         return $this->items()->where('product_id', $productId)->exists();
     }
 
+    /**
+     * Limpa todos os itens do carrinho
+     * O carrinho será excluído automaticamente após limpar (Observer)
+     * 
+     * @return bool
+     */
     public function clear(): bool
     {
-        return $this->items()->delete() > 0;
+        $itemsCount = $this->items()->count();
+        
+        if ($itemsCount === 0) {
+            return false; // Já está vazio
+        }
+        
+        $deleted = $this->items()->delete() > 0;
+        
+        if ($deleted) {
+            // Recarregar relacionamento
+            $this->load('items');
+            
+            // Observer irá excluir o carrinho vazio
+            $this->touch(); // Dispara evento 'updated'
+        }
+        
+        return $deleted;
+    }
+    
+    /**
+     * Verifica se o carrinho está vazio
+     * 
+     * @return bool
+     */
+    public function isEmpty(): bool
+    {
+        return $this->items()->count() === 0;
+    }
+    
+    /**
+     * Exclui o carrinho se estiver vazio
+     * Método público para uso manual (Observer faz automaticamente)
+     * 
+     * @return bool True se foi excluído, False se não estava vazio ou erro
+     */
+    public function deleteIfEmpty(): bool
+    {
+        if ($this->isEmpty() && $this->status === 'active') {
+            try {
+                $this->delete();
+                return true;
+            } catch (\Exception $e) {
+                \Log::error('Erro ao excluir carrinho vazio: ' . $e->getMessage());
+                return false;
+            }
+        }
+        
+        return false;
     }
 
     public function scopeActive($query)

@@ -100,6 +100,58 @@ class CartController extends Controller
         }
     }
 
+    /**
+     * Atualizar quantidade de um item no carrinho
+     */
+    public function update(Request $request, $productId)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return $this->unauthorizedResponse('Usuário não autenticado');
+            }
+
+            $validated = $request->validate([
+                'quantity' => 'required|integer|min:1|max:99'
+            ]);
+
+            $cart = Cart::getActiveForUser($user->id);
+            $cartItem = $cart->items()->where('product_id', $productId)->first();
+
+            if (!$cartItem) {
+                return $this->errorResponse('Item não encontrado no carrinho', 404);
+            }
+
+            // Atualizar quantidade
+            $cartItem->update(['quantity' => $validated['quantity']]);
+            $cartItem->load('product.productable.artists', 'product.productable.vinylSec');
+
+            Log::info('✅ Quantidade atualizada', [
+                'cart_item_id' => $cartItem->id,
+                'product_id' => $productId,
+                'old_quantity' => $cartItem->getOriginal('quantity'),
+                'new_quantity' => $validated['quantity']
+            ]);
+
+            return $this->successResponse(
+                new CartItemResource($cartItem),
+                'Quantidade atualizada com sucesso'
+            );
+
+        } catch (\Exception $e) {
+            Log::error('Erro ao atualizar quantidade:', [
+                'product_id' => $productId,
+                'error' => $e->getMessage()
+            ]);
+            return $this->serverErrorResponse('Erro ao atualizar quantidade');
+        }
+    }
+
+    /**
+     * Remover item do carrinho
+     * Se o carrinho ficar vazio, será excluído automaticamente
+     */
     public function destroy(Request $request, $productId)
     {
         try {
@@ -113,6 +165,7 @@ class CartController extends Controller
             }
 
             $cart = Cart::getActiveForUser($user->id);
+            $itemsCountBefore = $cart->items()->count();
 
             if (!$cart->removeItem($productId)) {
                 return response()->json([
@@ -121,12 +174,26 @@ class CartController extends Controller
                 ], 404);
             }
 
+            // Verificar se carrinho ainda existe (pode ter sido excluído pelo Observer)
+            $cartStillExists = Cart::find($cart->id) !== null;
+
+            Log::info('✅ Item removido do carrinho', [
+                'product_id' => $productId,
+                'items_before' => $itemsCountBefore,
+                'cart_deleted' => !$cartStillExists
+            ]);
+
             return response()->json([
                 'success' => true,
-                'message' => 'Produto removido do carrinho com sucesso'
+                'message' => 'Produto removido do carrinho com sucesso',
+                'cart_deleted' => !$cartStillExists // Indica se carrinho foi excluído
             ]);
 
         } catch (\Exception $e) {
+            Log::error('Erro ao remover item:', [
+                'product_id' => $productId,
+                'error' => $e->getMessage()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
@@ -134,6 +201,10 @@ class CartController extends Controller
         }
     }
 
+    /**
+     * Limpar carrinho
+     * O carrinho será excluído automaticamente após limpar
+     */
     public function clear(Request $request)
     {
         try {
@@ -148,15 +219,37 @@ class CartController extends Controller
 
             $cart = Cart::getActiveForUser($user->id);
             $itemsCount = $cart->items()->count();
-            $cart->clear();
+            
+            if ($itemsCount === 0) {
+                return response()->json([
+                    'success' => true,
+                    'data' => ['items_removed' => 0],
+                    'message' => 'Carrinho já está vazio'
+                ]);
+            }
+
+            $cart->clear(); // Observer irá excluir o carrinho
+
+            Log::info('✅ Carrinho limpo', [
+                'user_id' => $user->id,
+                'items_removed' => $itemsCount,
+                'cart_deleted' => true // Sempre excluído após clear
+            ]);
 
             return response()->json([
                 'success' => true,
-                'data' => ['items_removed' => $itemsCount],
+                'data' => [
+                    'items_removed' => $itemsCount,
+                    'cart_deleted' => true
+                ],
                 'message' => 'Carrinho limpo com sucesso'
             ]);
 
         } catch (\Exception $e) {
+            Log::error('Erro ao limpar carrinho:', [
+                'user_id' => $request->user()->id ?? null,
+                'error' => $e->getMessage()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()

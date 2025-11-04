@@ -209,6 +209,7 @@ class PaymentController extends Controller
                 $order = Order::create([
                     'order_number' => 'ORD-' . now()->format('Ymd') . '-' . Str::upper(Str::random(6)),
                     'user_id' => $request->user()->id,
+                    'cart_id' => $cart->id, // 🛒 Salvar ID do carrinho para marcar como completed depois
                     'status' => 'pending',
                     'payment_status' => 'pending',
                     'subtotal' => $subtotal,
@@ -264,13 +265,8 @@ class PaymentController extends Controller
                     'change_type' => 'automatic',
                 ]);
 
-                // 🔥 Arquivar carrinhos antigos completed do usuário antes de marcar novo
-                Cart::where('user_id', $request->user()->id)
-                    ->where('status', 'completed')
-                    ->update(['status' => 'archived']);
-                
-                // Marcar carrinho atual como completed
-                $cart->update(['status' => 'completed']);
+                // ⏳ Carrinho fica ativo até confirmação do pagamento
+                // Será marcado como 'completed' apenas quando payment_status = 'approved'
 
                 return $order;
             });
@@ -345,6 +341,19 @@ class PaymentController extends Controller
                     'change_type' => 'webhook',
                     'webhook_source' => 'mercadopago',
                 ]);
+
+                // ✅ Se pagamento APROVADO → marcar carrinho como completed
+                if ($payment->status === 'approved') {
+                    // Arquivar carrinhos antigos completed do usuário
+                    Cart::where('user_id', $order->user_id)
+                        ->where('status', 'completed')
+                        ->update(['status' => 'archived']);
+                    
+                    // Marcar carrinho atual como completed
+                    Cart::where('user_id', $order->user_id)
+                        ->where('id', $order->cart_id)
+                        ->update(['status' => 'completed']);
+                }
 
                 // Se for PIX, gerar etiqueta de envio
                 if ($payment->payment_method_id === 'pix' && $payment->status === 'pending') {

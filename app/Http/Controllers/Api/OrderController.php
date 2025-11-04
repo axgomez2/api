@@ -80,6 +80,8 @@ class OrderController extends Controller
 
     /**
      * Cria um novo pedido a partir do carrinho
+     * APENAS cria o pedido, NÃO processa pagamento
+     * Pagamento é processado depois via PaymentController
      */
     public function store(Request $request): JsonResponse
     {
@@ -104,14 +106,40 @@ class OrderController extends Controller
         try {
             $user = $request->user();
 
-            // Busca o carrinho do usuário
-            $cart = Cart::where('user_id', $user->id)->with('items.product', 'items.vinyl')->first();
+            // Busca o carrinho do usuário com lock para garantir consistência
+            $cart = Cart::where('user_id', $user->id)
+                        ->where('status', 'active')
+                        ->with('items.product', 'items.vinyl')
+                        ->first();
 
             if (!$cart || $cart->items->isEmpty()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Carrinho vazio',
                 ], 400);
+            }
+
+            // ✅ VALIDAR ESTOQUE COM LOCK PESSIMISTA
+            foreach ($cart->items as $item) {
+                $product = $item->product->lockForUpdate()->find($item->product_id);
+                
+                // Obter estoque atual do productable (VinylSec)
+                $currentStock = $product->productable?->vinylSec?->stock ?? $product->stock ?? 0;
+                
+                if ($currentStock < $item->quantity) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Estoque insuficiente para '{$product->name}'",
+                        'error_type' => 'insufficient_stock',
+                        'product' => [
+                            'id' => $product->id,
+                            'name' => $product->name,
+                            'available_stock' => $currentStock,
+                            'requested_quantity' => $item->quantity
+                        ]
+                    ], 400);
+                }
             }
 
             // Busca a cotação de frete
@@ -126,11 +154,16 @@ class OrderController extends Controller
             $discount = 0; // TODO: Implementar lógica de cupons
             $total = $subtotal + $shippingCost - $discount;
 
+            // Gera número do pedido único
+            $orderNumber = 'ORD-' . now()->format('Ymd') . '-' . strtoupper(substr(md5(uniqid()), 0, 6));
+
             // Cria o pedido
             $order = Order::create([
                 'user_id' => $user->id,
+                'cart_id' => $cart->id, // ✅ Referência ao carrinho
+                'order_number' => $orderNumber,
                 'status' => 'pending',
-                'payment_status' => 'pending',
+                'payment_status' => 'pending', // Aguardando pagamento
                 'payment_method' => $request->payment_method,
                 'subtotal' => $subtotal,
                 'shipping_cost' => $shippingCost,
@@ -186,11 +219,31 @@ class OrderController extends Controller
                 'automatic'
             );
 
-            // Limpa o carrinho
-            $cart->items()->delete();
-            $cart->delete();
+            // ✅ RESERVAR ESTOQUE (decrement com lock)
+            foreach ($cart->items as $item) {
+                // Decrementa estoque do vinylSec se existir, senão do product
+                if ($item->product->productable?->vinylSec) {
+                    $item->product->productable->vinylSec->decrement('stock', $item->quantity);
+                } else if ($item->product->stock !== null) {
+                    $item->product->decrement('stock', $item->quantity);
+                }
+            }
+
+            // ❌ NÃO DELETAR CARRINHO!
+            // Carrinho será marcado como 'converted' quando pagamento for aprovado
+            // Isso permite:
+            // - Histórico completo de carrinhos
+            // - Análise de conversão
+            // - Retentar pagamento se falhar
 
             DB::commit();
+
+            Log::info('✅ Pedido criado (aguardando pagamento)', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'user_id' => $user->id,
+                'total' => $total,
+            ]);
 
             // Carrega o pedido com relacionamentos
             $order->load(['items', 'statusHistory', 'shippingLabel', 'paymentTransactions']);

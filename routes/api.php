@@ -28,6 +28,7 @@ Route::any('/cors-debug', function() {
 });
 
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\CheckoutController;
 use App\Http\Controllers\Api\ClientAuthController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\VinylMasterController;
@@ -112,13 +113,19 @@ Route::middleware('client.auth')->group(function () {
     Route::post('/client/resend-verification', [ClientAuthController::class, 'resendVerificationEmail']);
     Route::post('/client/logout', [ClientAuthController::class, 'logout']);
 
-    // Carrinho
-    Route::prefix('client/cart')->group(function () {
+    // Cart routes
+    Route::prefix('cart')->group(function () {
         Route::get('/', [CartController::class, 'index']);
         Route::post('/', [CartController::class, 'store']);
+        Route::put('/{productId}', [CartController::class, 'update']);
         Route::delete('/{productId}', [CartController::class, 'destroy']);
         Route::delete('/', [CartController::class, 'clear']);
-        Route::get('/{productId}/check', [CartController::class, 'checkItem']); // Nova rota para verificar item
+    });
+
+    // Checkout routes (consolidado)
+    Route::prefix('checkout')->group(function () {
+        Route::get('/init', [CheckoutController::class, 'init']); // Consolida user, addresses, cart
+        Route::post('/validate', [CheckoutController::class, 'validate']); // Pré-validação
     });
 
     // Wishlist

@@ -21,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Registrar Observer para auto-exclusão de carrinhos vazios
+        \App\Models\Cart::observe(\App\Observers\CartObserver::class);
     }
 }
