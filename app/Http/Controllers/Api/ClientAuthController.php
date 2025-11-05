@@ -391,8 +391,40 @@ class ClientAuthController extends Controller
   /**
    * Redireciona o usuário para a página de autenticação do Google.
    */
-  public function redirectToGoogle()
+  public function redirectToGoogle(Request $request)
   {
+      // Receber redirect_uri do frontend
+      $redirectUri = $request->query('redirect_uri');
+      
+      // Validar domínios permitidos
+      $allowedDomains = [
+          'https://rdvdiscos.com.br',
+          'http://localhost:5173',
+      ];
+      
+      $isValid = false;
+      if ($redirectUri) {
+          foreach ($allowedDomains as $domain) {
+              if (str_starts_with($redirectUri, $domain)) {
+                  $isValid = true;
+                  break;
+              }
+          }
+      }
+      
+      // Se não for válido, usar padrão
+      if (!$isValid) {
+          $redirectUri = env('FRONTEND_URL', 'https://rdvdiscos.com.br') . '/auth/callback';
+      }
+      
+      // Salvar redirect_uri na sessão para usar no callback
+      session(['google_redirect_uri' => $redirectUri]);
+      
+      \Log::info('Google OAuth redirect iniciado:', [
+          'redirect_uri' => $redirectUri,
+          'from_request' => $request->query('redirect_uri')
+      ]);
+      
       return Socialite::driver('google')->stateless()->redirect();
   }
 
@@ -436,14 +468,35 @@ class ClientAuthController extends Controller
 
           $token = $user->createToken('client-auth-token')->plainTextToken;
 
+          // Pegar redirect_uri da sessão (definido no redirectToGoogle)
+          $redirectUri = session('google_redirect_uri', env('FRONTEND_URL', 'https://rdvdiscos.com.br') . '/auth/callback');
+          
+          \Log::info('Google OAuth callback concluído com sucesso:', [
+              'user_id' => $user->id,
+              'redirect_uri' => $redirectUri
+          ]);
+          
+          // Limpar a sessão
+          session()->forget('google_redirect_uri');
+
           // Redirecionar para o frontend com o token
-          $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
-          return redirect($frontendUrl . '/auth/callback?token=' . $token);
+          return redirect($redirectUri . '?token=' . $token);
 
       } catch (\Exception $e) {
           Log::error('Erro no callback do Google:', ['error' => $e->getMessage()]);
-          $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
-          return redirect($frontendUrl . '/login?error=google_login_failed');
+          
+          // Pegar redirect_uri da sessão ou usar padrão
+          $redirectUri = session('google_redirect_uri');
+          session()->forget('google_redirect_uri');
+          
+          if (!$redirectUri) {
+              $redirectUri = env('FRONTEND_URL', 'https://rdvdiscos.com.br') . '/login';
+          } else {
+              // Remover /auth/callback e adicionar /login
+              $redirectUri = str_replace('/auth/callback', '/login', $redirectUri);
+          }
+          
+          return redirect($redirectUri . '?error=google_login_failed');
       }
   }
 }
