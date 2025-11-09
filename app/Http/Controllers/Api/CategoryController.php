@@ -40,7 +40,7 @@ class CategoryController extends Controller
     /**
      * Listar produtos de uma categoria específica
      */
-    public function productsByCategory($slug)
+    public function productsByCategory(Request $request, $slug)
     {
         $category = CatStyleShop::where('slug', $slug)
             ->firstOrFail();
@@ -51,7 +51,7 @@ class CategoryController extends Controller
             ->toArray();
 
         // Buscar produtos que têm esses vinyl_masters
-        $products = Product::whereHasMorph(
+        $query = Product::whereHasMorph(
                 'productable',
                 ['App\\Models\\VinylMaster'],
                 function ($query) use ($vinylMasterIds) {
@@ -65,8 +65,32 @@ class CategoryController extends Controller
                 'productable.categories',
                 'productable.media',
                 'productable.tracks'
-            ])
-            ->paginate(15);
+            ]);
+
+        // Aplicar ordenação
+        // Aceita: sort=created_at, sort=-created_at (DESC)
+        $sortField = 'created_at';
+        $sortDirection = 'desc';
+
+        if ($request->has('sort')) {
+            $sortParam = $request->input('sort');
+            
+            // Se começar com '-', é descendente
+            if (str_starts_with($sortParam, '-')) {
+                $sortField = substr($sortParam, 1);
+                $sortDirection = 'desc';
+            } else {
+                $sortField = $sortParam;
+                $sortDirection = 'asc';
+            }
+        }
+
+        $query->orderBy($sortField, $sortDirection);
+
+        // Per page (limite de resultados)
+        $perPage = $request->input('per_page', 15);
+
+        $products = $query->paginate($perPage);
 
         return response()->json([
             'status' => 'success',
