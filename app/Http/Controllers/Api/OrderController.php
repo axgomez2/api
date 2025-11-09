@@ -24,8 +24,9 @@ class OrderController extends Controller
         try {
             $user = $request->user();
 
+            // Carregar apenas relacionamentos que existem
             $orders = Order::forUser($user->id)
-                ->with(['items', 'shippingLabel', 'paymentTransactions'])
+                ->with(['items'])
                 ->orderBy('created_at', 'desc')
                 ->paginate(10);
 
@@ -35,6 +36,11 @@ class OrderController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('Erro ao buscar pedidos: ' . $e->getMessage(), [
+                'user_id' => $user->id ?? null,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao buscar pedidos: ' . $e->getMessage(),
