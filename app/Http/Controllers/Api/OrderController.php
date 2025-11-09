@@ -56,19 +56,9 @@ class OrderController extends Controller
         try {
             $user = $request->user();
 
+            // Carregar apenas relacionamentos que existem
             $order = Order::forUser($user->id)
-                ->with([
-                    'items.product',
-                    'items.vinyl',
-                    'statusHistory' => function($query) {
-                        $query->orderBy('created_at', 'desc');
-                    },
-                    'shippingLabel',
-                    'paymentTransactions' => function($query) {
-                        $query->orderBy('created_at', 'desc');
-                    },
-                    'coupons'
-                ])
+                ->with(['items'])
                 ->findOrFail($id);
 
             return response()->json([
@@ -76,11 +66,22 @@ class OrderController extends Controller
                 'data' => $order,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Pedido não encontrado',
             ], 404);
+        } catch (\Exception $e) {
+            \Log::error('Erro ao buscar detalhes do pedido: ' . $e->getMessage(), [
+                'user_id' => $user->id ?? null,
+                'order_id' => $id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao buscar pedido: ' . $e->getMessage(),
+            ], 500);
         }
     }
 
