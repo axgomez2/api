@@ -342,17 +342,49 @@ class PaymentController extends Controller
                     'webhook_source' => 'mercadopago',
                 ]);
 
-                // ✅ Se pagamento APROVADO → marcar carrinho como completed
+                // ✅ Se pagamento APROVADO → marcar carrinho como completed e baixar estoque
                 if ($payment->status === 'approved') {
-                    // Arquivar carrinhos antigos completed do usuário
+                    // 1. Arquivar carrinhos antigos completed do usuário
                     Cart::where('user_id', $order->user_id)
                         ->where('status', 'completed')
                         ->update(['status' => 'archived']);
                     
-                    // Marcar carrinho atual como completed
-                    Cart::where('user_id', $order->user_id)
+                    // 2. Marcar carrinho atual como completed
+                    $cart = Cart::where('user_id', $order->user_id)
                         ->where('id', $order->cart_id)
-                        ->update(['status' => 'completed']);
+                        ->with('items.product.productable.vinylSec')
+                        ->first();
+                    
+                    if ($cart) {
+                        $cart->update(['status' => 'completed']);
+                        
+                        // 3. Baixar estoque dos produtos
+                        foreach ($cart->items as $item) {
+                            try {
+                                // Decrementa estoque do vinylSec se existir, senão do product
+                                if ($item->product->productable?->vinylSec) {
+                                    $item->product->productable->vinylSec->decrement('stock', $item->quantity);
+                                    Log::info('✅ Estoque decrementado', [
+                                        'product_id' => $item->product_id,
+                                        'quantity' => $item->quantity,
+                                        'new_stock' => $item->product->productable->vinylSec->stock
+                                    ]);
+                                } else if ($item->product->stock !== null) {
+                                    $item->product->decrement('stock', $item->quantity);
+                                    Log::info('✅ Estoque decrementado (product)', [
+                                        'product_id' => $item->product_id,
+                                        'quantity' => $item->quantity,
+                                        'new_stock' => $item->product->stock
+                                    ]);
+                                }
+                            } catch (\Exception $e) {
+                                Log::error('❌ Erro ao decrementar estoque', [
+                                    'product_id' => $item->product_id,
+                                    'error' => $e->getMessage()
+                                ]);
+                            }
+                        }
+                    }
                 }
 
                 // Se for PIX, gerar etiqueta de envio
@@ -394,19 +426,29 @@ class PaymentController extends Controller
                 'request_data' => $request->except(['token', 'cvv'])
             ]);
 
-            // Em desenvolvimento, mostrar erro detalhado
-            $errorMessage = config('app.debug') 
-                ? $e->getMessage() . ' (Linha: ' . $e->getLine() . ')' 
-                : 'Erro ao processar pagamento. Tente novamente.';
+            // Mapear erros do MercadoPago para mensagens amigáveis
+            $errorMessage = $this->getPaymentErrorMessage($e->getMessage());
+            
+            // Status code apropriado
+            $statusCode = 500;
+            if (str_contains($e->getMessage(), 'Invalid card_token_id')) {
+                $statusCode = 400; // Bad Request
+            } elseif (str_contains($e->getMessage(), 'insufficient_amount')) {
+                $statusCode = 400;
+            } elseif (str_contains($e->getMessage(), 'cc_rejected')) {
+                $statusCode = 402; // Payment Required
+            }
 
             return response()->json([
                 'success' => false,
                 'message' => $errorMessage,
+                'error_code' => str_contains($e->getMessage(), 'Invalid card_token_id') ? 'invalid_token' : 'payment_error',
                 'error_details' => config('app.debug') ? [
                     'file' => $e->getFile(),
-                    'line' => $e->getLine()
+                    'line' => $e->getLine(),
+                    'original_message' => $e->getMessage()
                 ] : null
-            ], 500);
+            ], $statusCode);
         }
     }
 
@@ -600,5 +642,55 @@ class PaymentController extends Controller
         ];
 
         return $messages[$status] ?? 'Status desconhecido';
+    }
+
+    /**
+     * Mapear mensagens de erro do MercadoPago para mensagens amigáveis
+     */
+    private function getPaymentErrorMessage($error)
+    {
+        // Erros de token de cartão
+        if (str_contains($error, 'Invalid card_token_id') || str_contains($error, 'card_token')) {
+            return 'Erro ao processar dados do cartão. Por favor, preencha os dados novamente e tente outra vez.';
+        }
+        
+        // Erros de cartão rejeitado
+        if (str_contains($error, 'cc_rejected_insufficient_amount')) {
+            return 'Cartão recusado por falta de limite. Tente com outro cartão.';
+        }
+        
+        if (str_contains($error, 'cc_rejected_bad_filled')) {
+            return 'Dados do cartão incorretos. Verifique os dados e tente novamente.';
+        }
+        
+        if (str_contains($error, 'cc_rejected_call_for_authorize')) {
+            return 'Seu banco solicita que você autorize o pagamento. Entre em contato com o banco e tente novamente.';
+        }
+        
+        if (str_contains($error, 'cc_rejected_card_disabled')) {
+            return 'Cartão inativo. Entre em contato com o banco ou use outro cartão.';
+        }
+        
+        if (str_contains($error, 'cc_rejected_high_risk')) {
+            return 'Pagamento recusado por segurança. Tente com outro cartão ou forma de pagamento.';
+        }
+        
+        // Erros genéricos de cartão
+        if (str_contains($error, 'cc_rejected')) {
+            return 'Pagamento recusado. Verifique os dados do cartão ou tente com outro cartão.';
+        }
+        
+        // Erro de amount
+        if (str_contains($error, 'amount')) {
+            return 'Valor inválido para processamento. Tente novamente.';
+        }
+        
+        // Erro genérico do MP
+        if (str_contains($error, 'Api error') || str_contains($error, 'MercadoPago')) {
+            return 'Erro ao processar pagamento. Tente novamente em alguns minutos.';
+        }
+        
+        // Erro padrão
+        return 'Erro ao processar pagamento. Por favor, tente novamente.';
     }
 }
