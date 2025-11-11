@@ -177,23 +177,42 @@ class ProductController extends Controller
                 });
             }
 
+            // Filtro por is_new (lançamentos)
+            if ($request->has('is_new') && $request->input('is_new') == 'true') {
+                $query->whereHas('productable.vinylSec', function($q) {
+                    $q->where('is_new', 1);
+                });
+            }
+
+            // Filtro por is_presale (pré-vendas)
+            if ($request->has('is_presale') && $request->input('is_presale') == 'true') {
+                $query->whereHas('productable.vinylSec', function($q) {
+                    $q->where('is_presale', 1);
+                });
+            }
+
             // Definir ordenação
             $sortField = $request->input('sort_by', 'created_at');
             $sortDirection = $request->input('sort_direction', 'desc');
+            
+            // Permitir sort_order como alternativa para sort_direction
+            if ($request->has('sort_order')) {
+                $sortDirection = $request->input('sort_order');
+            }
 
             // Lista de campos permitidos para ordenação
-            $allowedSortFields = ['created_at', 'name', 'price'];
+            $allowedSortFields = ['created_at', 'name', 'price', 'release_date'];
 
             // Verificar se o campo de ordenação é válido
             if (in_array($sortField, $allowedSortFields)) {
-                // Se for ordenação por preço, precisamos ordenar pelo relacionamento vinylSec
-                if ($sortField === 'price') {
+                // Se for ordenação por preço ou release_date, precisamos ordenar pelo relacionamento vinylSec
+                if ($sortField === 'price' || $sortField === 'release_date') {
                     $query->join('vinyl_masters', function ($join) {
                         $join->on('products.productable_id', '=', 'vinyl_masters.id');
                         $join->where('products.productable_type', '=', 'App\\Models\\VinylMaster');
                     })
                     ->join('vinyl_secs', 'vinyl_masters.id', '=', 'vinyl_secs.vinyl_master_id')
-                    ->orderBy('vinyl_secs.price', $sortDirection)
+                    ->orderBy('vinyl_secs.' . $sortField, $sortDirection)
                     ->select('products.*');
                 } else {
                     $query->orderBy($sortField, $sortDirection);
