@@ -201,12 +201,12 @@ class ProductController extends Controller
             }
 
             // Lista de campos permitidos para ordenação
-            $allowedSortFields = ['created_at', 'name', 'price', 'release_date'];
+            $allowedSortFields = ['created_at', 'name', 'price', 'presale_arrival_date'];
 
             // Verificar se o campo de ordenação é válido
             if (in_array($sortField, $allowedSortFields)) {
-                // Se for ordenação por preço ou release_date, precisamos ordenar pelo relacionamento vinylSec
-                if ($sortField === 'price' || $sortField === 'release_date') {
+                // Se for ordenação por preço ou presale_arrival_date, precisamos ordenar pelo relacionamento vinylSec
+                if ($sortField === 'price' || $sortField === 'presale_arrival_date') {
                     $query->join('vinyl_masters', function ($join) {
                         $join->on('products.productable_id', '=', 'vinyl_masters.id');
                         $join->where('products.productable_type', '=', 'App\\Models\\VinylMaster');

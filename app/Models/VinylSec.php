@@ -19,7 +19,6 @@ class VinylSec extends Model
         'is_new',
         'is_presale',
         'presale_arrival_date',
-        'release_date',
         'promotional_price',
         'is_promotional',
         'in_stock'
