@@ -169,6 +169,7 @@ Route::middleware('client.auth')->group(function () {
     Route::prefix('client/orders')->group(function () {
         Route::get('/', [OrderController::class, 'index']);
         Route::post('/', [OrderController::class, 'store']);
+        Route::post('/whatsapp', [OrderController::class, 'createWhatsAppOrder']); // ✅ Rota para pedido via WhatsApp
         Route::get('/{id}', [OrderController::class, 'show']);
         Route::put('/{id}/cancel', [OrderController::class, 'cancel']);
         Route::get('/{id}/tracking', [OrderController::class, 'tracking']);
