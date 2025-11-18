@@ -504,10 +504,21 @@ class OrderController extends Controller
             $orderItems = [];
 
             foreach ($data['cart_items'] as $cartItem) {
-                $product = \App\Models\Product::with(['productable', 'productable.vinylSec'])->find($cartItem['id']);
+                \Log::info('🔍 [WhatsApp Order] Processando item do carrinho:', [
+                    'cart_item_id' => $cartItem['id'],
+                    'quantity' => $cartItem['quantity']
+                ]);
+                
+                $product = \App\Models\Product::with(['productable.artists', 'productable.vinylSec'])->find($cartItem['id']);
                 if (!$product) {
                     throw new \Exception("Produto ID {$cartItem['id']} não encontrado");
                 }
+
+                \Log::info('📦 [WhatsApp Order] Produto encontrado:', [
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'product_type' => $product->productable_type
+                ]);
 
                 // Acessar dados do relacionamento polimórfico
                 $productable = $product->productable;
@@ -520,7 +531,21 @@ class OrderController extends Controller
                     $productPrice = $vinylSec->promotional_price;
                 }
                 
-                $artistName = $productable->artist ?? 'Artista não informado';
+                // Pegar artistas corretamente da relação
+                $artistName = 'Artista não informado';
+                if ($productable && method_exists($productable, 'artists')) {
+                    $artists = $productable->artists;
+                    if ($artists && $artists->count() > 0) {
+                        $artistName = $artists->pluck('name')->join(', ');
+                    }
+                }
+                
+                \Log::info('🎤 [WhatsApp Order] Artista(s) identificado(s):', [
+                    'artist_name' => $artistName,
+                    'has_productable' => !is_null($productable),
+                    'productable_type' => $productable ? get_class($productable) : null
+                ]);
+                
                 $productSku = $productable->sku ?? $product->slug;
                 
                 // Lógica de imagem - seguindo VinylCard.vue
