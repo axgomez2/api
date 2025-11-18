@@ -574,6 +574,7 @@ class OrderController extends Controller
 
                 $orderItems[] = [
                     'product_id' => $product->id,
+                    'vinyl_id' => $vinylSec?->id, // ✅ ADICIONA vinyl_id para controle de estoque
                     'quantity' => $cartItem['quantity'],
                     'unit_price' => $productPrice,
                     'total_price' => $itemTotal,
@@ -626,6 +627,7 @@ class OrderController extends Controller
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $itemData['product_id'],
+                    'vinyl_id' => $itemData['vinyl_id'] ?? null, // ✅ INCLUI vinyl_id para controle de estoque
                     'quantity' => $itemData['quantity'],
                     'unit_price' => $itemData['unit_price'],
                     'total_price' => $itemData['total_price'],
